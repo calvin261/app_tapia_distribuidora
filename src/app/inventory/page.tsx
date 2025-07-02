@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { PlusIcon, CubeIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline';
+import { PlusIcon, CubeIcon, ExclamationTriangleIcon, PencilIcon, TrashIcon } from '@heroicons/react/24/outline';
 import { toast } from 'sonner';
 import { PageLayout } from '@/components/layout/PageLayout';
 
@@ -30,6 +30,7 @@ export default function InventoryPage() {
   const [loading, setLoading] = useState(true);
   const [isNewProductOpen, setIsNewProductOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
 
   useEffect(() => {
     fetchProducts();
@@ -52,6 +53,38 @@ export default function InventoryPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleEdit = (product: Product) => {
+    setEditingProduct(product);
+    setIsNewProductOpen(true);
+  };
+
+  const handleDelete = async (id: string, name: string) => {
+    if (!confirm(`¿Está seguro de que desea eliminar el producto "${name}"?`)) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/products/${id}`, {
+        method: 'DELETE',
+      });
+
+      if (response.ok) {
+        toast.success('Producto eliminado exitosamente');
+        fetchProducts();
+      } else {
+        const error = await response.json();
+        toast.error(error.error || 'Error al eliminar el producto');
+      }
+    } catch (error) {
+      console.error('Error deleting product:', error);
+      toast.error('Error al eliminar el producto');
+    }
+  };
+
+  const resetForm = () => {
+    setEditingProduct(null);
   };
 
   const filteredProducts = Array.isArray(products) ? products.filter(product =>
@@ -86,24 +119,33 @@ export default function InventoryPage() {
       <div className="space-y-6">
         {/* Action Button */}
         <div className="flex justify-end">
-          <Dialog open={isNewProductOpen} onOpenChange={setIsNewProductOpen}>
+          <Dialog open={isNewProductOpen} onOpenChange={(open) => {
+            setIsNewProductOpen(open);
+            if (!open) resetForm();
+          }}>
             <DialogTrigger asChild>
-              <Button>
+              <Button onClick={resetForm}>
                 <PlusIcon className="h-4 w-4 mr-2" />
                 Nuevo Producto
               </Button>
             </DialogTrigger>
           <DialogContent className="max-w-2xl">
             <DialogHeader>
-              <DialogTitle>Agregar Nuevo Producto</DialogTitle>
+              <DialogTitle>
+                {editingProduct ? 'Editar Producto' : 'Agregar Nuevo Producto'}
+              </DialogTitle>
               <DialogDescription>
-                Registra un nuevo producto en el inventario
+                {editingProduct ? 'Modifica la información del producto' : 'Registra un nuevo producto en el inventario'}
               </DialogDescription>
             </DialogHeader>
-            <NewProductForm onSuccess={() => {
-              setIsNewProductOpen(false);
-              fetchProducts();
-            }} />
+            <NewProductForm 
+              editingProduct={editingProduct}
+              onSuccess={() => {
+                setIsNewProductOpen(false);
+                fetchProducts();
+                resetForm();
+              }} 
+            />
           </DialogContent>
         </Dialog>
       </div>
@@ -271,9 +313,25 @@ export default function InventoryPage() {
                     <TableCell>${Number(product.sale_price).toFixed(2)}</TableCell>
                     <TableCell>{getStockStatusBadge(product)}</TableCell>
                     <TableCell>
-                      <Button variant="outline" size="sm">
-                        Editar
-                      </Button>
+                      <div className="flex space-x-2">
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => handleEdit(product)}
+                        >
+                          <PencilIcon className="h-4 w-4 mr-1" />
+                          Editar
+                        </Button>
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => handleDelete(product.id, product.name)}
+                          className="text-red-600 hover:text-red-700"
+                        >
+                          <TrashIcon className="h-4 w-4 mr-1" />
+                          Eliminar
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -287,7 +345,13 @@ export default function InventoryPage() {
   );
 }
 
-function NewProductForm({ onSuccess }: { onSuccess: () => void }) {
+function NewProductForm({ 
+  editingProduct, 
+  onSuccess 
+}: { 
+  editingProduct?: Product | null; 
+  onSuccess: () => void; 
+}) {
   const [formData, setFormData] = useState({
     name: '',
     sku: '',
@@ -298,15 +362,45 @@ function NewProductForm({ onSuccess }: { onSuccess: () => void }) {
     min_stock_level: '',
     unit: 'unit'
   });
-  const [loading, setLoading] = useState(false);
+  const [formLoading, setFormLoading] = useState(false);
+
+  // Initialize form with editing product data
+  useEffect(() => {
+    if (editingProduct) {
+      setFormData({
+        name: editingProduct.name,
+        sku: editingProduct.sku,
+        description: '', // Add description to Product interface if needed
+        cost_price: editingProduct.cost_price.toString(),
+        sale_price: editingProduct.sale_price.toString(),
+        stock_quantity: editingProduct.stock_quantity.toString(),
+        min_stock_level: editingProduct.min_stock_level.toString(),
+        unit: 'unit' // Add unit to Product interface if needed
+      });
+    } else {
+      setFormData({
+        name: '',
+        sku: '',
+        description: '',
+        cost_price: '',
+        sale_price: '',
+        stock_quantity: '',
+        min_stock_level: '',
+        unit: 'unit'
+      });
+    }
+  }, [editingProduct]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
+    setFormLoading(true);
 
     try {
-      const response = await fetch('/api/products', {
-        method: 'POST',
+      const url = editingProduct ? `/api/products/${editingProduct.id}` : '/api/products';
+      const method = editingProduct ? 'PUT' : 'POST';
+      
+      const response = await fetch(url, {
+        method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...formData,
@@ -318,17 +412,17 @@ function NewProductForm({ onSuccess }: { onSuccess: () => void }) {
       });
 
       if (response.ok) {
-        toast.success('Producto agregado exitosamente');
+        toast.success(editingProduct ? 'Producto actualizado exitosamente' : 'Producto agregado exitosamente');
         onSuccess();
       } else {
         const error = await response.json();
-        toast.error(error.error || 'Error al agregar el producto');
+        toast.error(error.error || `Error al ${editingProduct ? 'actualizar' : 'agregar'} el producto`);
       }
     } catch (error) {
-      console.error('Error creating product:', error);
-      toast.error('Error al agregar el producto');
+      console.error('Error saving product:', error);
+      toast.error(`Error al ${editingProduct ? 'actualizar' : 'agregar'} el producto`);
     } finally {
-      setLoading(false);
+      setFormLoading(false);
     }
   };
 
@@ -442,8 +536,8 @@ function NewProductForm({ onSuccess }: { onSuccess: () => void }) {
       </div>
 
       <div className="flex justify-end space-x-2">
-        <Button type="submit" disabled={loading}>
-          {loading ? 'Guardando...' : 'Agregar Producto'}
+        <Button type="submit" disabled={formLoading}>
+          {formLoading ? 'Guardando...' : (editingProduct ? 'Actualizar Producto' : 'Agregar Producto')}
         </Button>
       </div>
     </form>

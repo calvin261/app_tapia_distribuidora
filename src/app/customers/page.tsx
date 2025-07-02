@@ -323,7 +323,7 @@ export default function CustomersPage() {
                   <TableCell>
                     {customer.credit_limit && customer.credit_limit > 0 ? (
                       <Badge variant="secondary">
-                        ${customer.credit_limit.toFixed(2)}
+                        ${customer.credit_limit}
                       </Badge>
                     ) : (
                       <Badge variant="outline">Sin crédito</Badge>

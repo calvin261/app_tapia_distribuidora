@@ -75,15 +75,6 @@ const tutorialSteps: TutorialStep[] = [
   },
   {
     id: 6,
-    title: "Facturación Rápida",
-    description: "Procesa ventas en segundos",
-    content: "Usa el sistema de facturación rápida para procesar ventas en un solo paso. Busca productos, agrega cantidades, selecciona método de pago y listo.",
-    link: "/invoicing",
-    action: "Probar Facturación",
-    completed: false
-  },
-  {
-    id: 7,
     title: "Órdenes de Compra",
     description: "Gestiona pedidos a proveedores",
     content: "Crea órdenes de compra, realiza seguimiento de entregas y actualiza automáticamente tu inventario cuando recibas la mercancía.",
@@ -92,7 +83,7 @@ const tutorialSteps: TutorialStep[] = [
     completed: false
   },
   {
-    id: 8,
+    id: 7,
     title: "Reportes y Análisis",
     description: "Analiza el rendimiento de tu negocio",
     content: "Genera reportes detallados de ventas, inventario, clientes y análisis financiero. Usa los gráficos interactivos para tomar decisiones informadas.",

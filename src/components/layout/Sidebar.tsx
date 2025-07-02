@@ -13,7 +13,6 @@ import {
   XMarkIcon,
   BellIcon,
   ChatBubbleLeftRightIcon,
-  ReceiptPercentIcon,
 } from '@heroicons/react/24/outline';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
@@ -21,7 +20,6 @@ import { usePathname } from 'next/navigation';
 
 const navigation = [
   { name: 'Dashboard', href: '/', icon: HomeIcon },
-  { name: 'Facturación Rápida', href: '/invoicing', icon: ReceiptPercentIcon },
   { name: 'Ventas', href: '/sales', icon: ShoppingCartIcon },
   { name: 'Inventario', href: '/inventory', icon: CubeIcon },
   { name: 'Órdenes de Compra', href: '/purchases', icon: ShoppingCartIcon },

@@ -1,5 +1,6 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { sql } from '@/lib/database';
+import { NextRequest, NextResponse } from "next/server";
+import { sql } from "@/lib/database";
+
 
 interface SaleItem {
   product_id: string;
@@ -11,7 +12,7 @@ interface SaleItem {
 export async function GET() {
   try {
     const sales = await sql`
-      SELECT 
+      SELECT
         s.*,
         c.name as customer_name,
         u.name as user_name
@@ -20,12 +21,57 @@ export async function GET() {
       LEFT JOIN users u ON s.user_id = u.id
       ORDER BY s.created_at DESC
     `;
-    
-    return NextResponse.json(sales);
+
+    // Define types for sales
+    interface SaleRow {
+      id: string;
+      customer_id: string | null;
+      user_id: string;
+      invoice_number: string;
+      sale_date: string;
+      subtotal: number;
+      tax_amount: number;
+      discount_amount: number;
+      total_amount: number;
+      payment_method: string;
+      payment_status: string;
+      status: string;
+      notes: string | null;
+      created_at: string;
+      updated_at: string;
+      customer_name?: string;
+      user_name?: string;
+    }
+    interface SaleItemRow {
+      sale_id: string;
+      product_id: string;
+      product_name: string;
+      quantity: number;
+      unit_price: number;
+      discount_amount: number;
+      total_amount: number;
+    }
+    const saleIds = (sales as SaleRow[]).map((s) => s.id);
+    let saleItems: SaleItemRow[] = [];
+    if (saleIds.length > 0) {
+      saleItems = (await sql`
+        SELECT si.*, p.name as product_name
+        FROM sale_items si
+        LEFT JOIN products p ON si.product_id = p.id
+        WHERE si.sale_id = ANY(${[saleIds]})
+      `) as SaleItemRow[];
+    }
+    // Attach items to each sale
+    const salesWithItems = (sales as SaleRow[]).map((sale) => ({
+      ...sale,
+      items: saleItems.filter((item) => item.sale_id === sale.id)
+    }));
+
+    return NextResponse.json(salesWithItems);
   } catch (error) {
-    console.error('Error fetching sales:', error);
+    console.error("Error fetching sales:", error);
     return NextResponse.json(
-      { error: 'Failed to fetch sales' },
+      { error: "Failed to fetch sales" },
       { status: 500 }
     );
   }
@@ -33,26 +79,31 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
+    console.log("xD");
+
     const data = await request.json();
-    const { 
+    const {
       customer_id,
-      user_id,
       items,
       payment_method,
+      payment_status = "pending",
+      status = "draft",
       discount_amount = 0,
-      notes
+      notes,
+      user_id
     } = data;
 
-    if (!user_id || !items || items.length === 0) {
+    if (!items || items.length === 0) {
       return NextResponse.json(
-        { error: 'User ID and items are required' },
+        { error: "Items are required" },
         { status: 400 }
       );
     }
 
     // Calculate totals
-    const subtotal = items.reduce((sum: number, item: SaleItem) => 
-      sum + (item.quantity * item.unit_price), 0
+    const subtotal = items.reduce(
+      (sum: number, item: SaleItem) => sum + item.quantity * item.unit_price,
+      0
     );
     const tax_amount = subtotal * 0.16; // 16% tax
     const total_amount = subtotal + tax_amount - discount_amount;
@@ -60,7 +111,10 @@ export async function POST(request: NextRequest) {
     // Generate invoice number
     const invoice_number = `INV-${Date.now()}`;
 
-    // Create sale
+    // Convert empty string customer_id to null for DB compatibility
+    const safeCustomerId = customer_id === '' ? null : customer_id;
+
+    // Create sale using the authenticated user's ID
     const saleResult = await sql`
       INSERT INTO sales (
         customer_id, user_id, invoice_number, sale_date,
@@ -68,31 +122,31 @@ export async function POST(request: NextRequest) {
         payment_method, payment_status, status, notes
       )
       VALUES (
-        ${customer_id}, ${user_id}, ${invoice_number}, NOW(),
+        ${safeCustomerId}, ${user_id}, ${invoice_number}, NOW(),
         ${subtotal}, ${tax_amount}, ${discount_amount}, ${total_amount},
-        ${payment_method}, 'paid', 'confirmed', ${notes}
+        ${payment_method}, ${payment_status}, ${status}, ${notes}
       )
       RETURNING *
     `;
-
+    console.log("Sale created:", saleResult);
     const sale = saleResult[0];
 
     // Create sale items
     for (const item of items) {
       await sql`
         INSERT INTO sale_items (
-          sale_id, product_id, quantity, unit_price, 
+          sale_id, product_id, quantity, unit_price,
           discount_amount, total_amount
         )
         VALUES (
           ${sale.id}, ${item.product_id}, ${item.quantity}, ${item.unit_price},
-          ${item.discount_amount || 0}, ${item.quantity * item.unit_price}
+          ${item.discount_amount ?? 0}, ${item.quantity * item.unit_price}
         )
       `;
 
       // Update product stock
       await sql`
-        UPDATE products 
+        UPDATE products
         SET stock_quantity = stock_quantity - ${item.quantity},
             updated_at = NOW()
         WHERE id = ${item.product_id}
@@ -101,7 +155,7 @@ export async function POST(request: NextRequest) {
       // Create stock movement
       await sql`
         INSERT INTO stock_movements (
-          product_id, movement_type, quantity, reference_type, 
+          product_id, movement_type, quantity, reference_type,
           reference_id, user_id
         )
         VALUES (
@@ -113,9 +167,9 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(sale, { status: 201 });
   } catch (error) {
-    console.error('Error creating sale:', error);
+    console.error("Error creating sale:", error);
     return NextResponse.json(
-      { error: 'Failed to create sale' },
+      { error: "Failed to create sale" },
       { status: 500 }
     );
   }

@@ -85,7 +85,7 @@ const helpContent: Record<string, HelpContent> = {
     ],
     tips: [
       'Verifica siempre el stock antes de vender',
-      'Usa la facturación rápida para ventas simples',
+      'Usa el buscador de productos para agilizar las ventas',
       'Mantén registro de todas las transacciones'
     ]
   },
@@ -102,21 +102,6 @@ const helpContent: Record<string, HelpContent> = {
       'Planifica compras basándote en alertas de stock',
       'Negocia mejores precios por volumen',
       'Mantén seguimiento de entregas pendientes'
-    ]
-  },
-  '/invoicing': {
-    title: 'Facturación Rápida',
-    description: 'Procesa ventas en un solo paso de manera eficiente.',
-    steps: [
-      'Usa la búsqueda de productos para agregar items',
-      'Ajusta cantidades y precios si es necesario',
-      'Selecciona el método de pago',
-      'Procesa la venta y genera la factura'
-    ],
-    tips: [
-      'Este método es ideal para ventas rápidas en mostrador',
-      'Verifica siempre la disponibilidad de stock',
-      'Puedes agregar descuentos por producto si es necesario'
     ]
   },
   '/reports': {

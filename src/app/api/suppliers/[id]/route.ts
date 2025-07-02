@@ -63,14 +63,32 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
   try {
     const { id } = await params;
-    const supplier = await sql`
-      DELETE FROM suppliers WHERE id = ${id}
-      RETURNING *
+    
+    // First check if supplier exists
+    const existingSupplier = await sql`
+      SELECT id FROM suppliers WHERE id = ${id}
     `;
 
-    if (supplier.length === 0) {
+    if (existingSupplier.length === 0) {
       return NextResponse.json({ error: 'Proveedor no encontrado' }, { status: 404 });
     }
+
+    // Check if supplier has any associated products or purchases
+    const [productsCount, purchasesCount] = await Promise.all([
+      sql`SELECT COUNT(*) as count FROM products WHERE supplier_id = ${id}`,
+      sql`SELECT COUNT(*) as count FROM purchases WHERE supplier_id = ${id}`
+    ]);
+
+    if (productsCount[0].count > 0 || purchasesCount[0].count > 0) {
+      return NextResponse.json({
+        error: 'No se puede eliminar el proveedor porque tiene productos o compras asociadas'
+      }, { status: 409 });
+    }
+
+    // Delete the supplier
+    await sql`
+      DELETE FROM suppliers WHERE id = ${id}
+    `;
 
     return NextResponse.json({ message: 'Proveedor eliminado exitosamente' });
   } catch (error) {

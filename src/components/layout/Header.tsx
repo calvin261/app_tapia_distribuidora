@@ -1,18 +1,17 @@
 "use client";
 
-import { useState } from 'react';
-import { MagnifyingGlassIcon, Bars3Icon, BellIcon, UserCircleIcon } from '@heroicons/react/24/outline';
+import { Bars3Icon, BellIcon, UserCircleIcon } from '@heroicons/react/24/outline';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Badge } from '@/components/ui/badge';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface HeaderProps {
   onMenuClick: () => void;
 }
 
-export function Header({ onMenuClick }: HeaderProps) {
-  const [searchQuery, setSearchQuery] = useState('');
+export function Header({ onMenuClick }: Readonly<HeaderProps>) {
+  const { user, logout } = useAuth();
 
   return (
     <div className="sticky top-0 z-40 flex h-16 shrink-0 items-center gap-x-4 border-b border-slate-200 bg-white px-4 shadow-sm sm:gap-x-6 sm:px-6 lg:px-8">
@@ -25,24 +24,9 @@ export function Header({ onMenuClick }: HeaderProps) {
       <div className="h-6 w-px bg-slate-200 lg:hidden" aria-hidden="true" />
 
       <div className="flex flex-1 gap-x-4 self-stretch lg:gap-x-6">
-        <form className="relative flex flex-1" action="#" method="GET">
-          <label htmlFor="search-field" className="sr-only">
-            Buscar
-          </label>
-          <MagnifyingGlassIcon
-            className="pointer-events-none absolute inset-y-0 left-0 h-full w-5 text-slate-400"
-            aria-hidden="true"
-          />
-          <Input
-            id="search-field"
-            className="block h-full w-full border-0 py-0 pl-8 pr-0 text-slate-900 placeholder:text-slate-400 focus:ring-0 sm:text-sm"
-            placeholder="Buscar productos, clientes, proveedores..."
-            type="search"
-            name="search"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
-        </form>
+        <div className="relative flex flex-1">
+
+        </div>
         <div className="flex items-center gap-x-4 lg:gap-x-6">
           {/* Notifications */}
           <DropdownMenu>
@@ -87,16 +71,33 @@ export function Header({ onMenuClick }: HeaderProps) {
           {/* Profile dropdown */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon">
-                <UserCircleIcon className="h-8 w-8 text-slate-400" aria-hidden="true" />
+              <Button variant="ghost" size="sm" className="flex items-center gap-2">
+                <UserCircleIcon className="h-6 w-6 text-slate-400" aria-hidden="true" />
+                <span className="hidden md:block text-sm text-slate-700">
+                  {user?.name ?? 'Usuario'}
+                </span>
                 <span className="sr-only">Abrir menú de usuario</span>
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
+              <div className="px-3 py-2">
+                <p className="text-sm font-medium text-slate-900">{user?.name}</p>
+                <p className="text-xs text-slate-500">{user?.email}</p>
+                <p className="text-xs text-slate-500 capitalize">
+                  {(() => {
+                    if (user?.role === 'admin') return 'Administrador';
+                    if (user?.role === 'manager') return 'Gerente';
+                    return 'Empleado';
+                  })()}
+                </p>
+              </div>
+              <DropdownMenuSeparator />
               <DropdownMenuItem>Tu perfil</DropdownMenuItem>
               <DropdownMenuItem>Configuración</DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem>Cerrar sesión</DropdownMenuItem>
+              <DropdownMenuItem onClick={logout} className="text-red-600">
+                Cerrar sesión
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>

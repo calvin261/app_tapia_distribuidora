@@ -9,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { PlusIcon, ShoppingBagIcon, TruckIcon, ClockIcon } from '@heroicons/react/24/outline';
+import { PlusIcon, ShoppingBagIcon, TruckIcon, ClockIcon, PencilIcon, TrashIcon } from '@heroicons/react/24/outline';
 import { toast } from 'sonner';
 import { PageLayout } from '@/components/layout/PageLayout';
 
@@ -47,6 +47,7 @@ export default function PurchasesPage() {
   const [loading, setLoading] = useState(true);
   const [isNewPurchaseOpen, setIsNewPurchaseOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [editingPurchase, setEditingPurchase] = useState<Purchase | null>(null);
 
   useEffect(() => {
     fetchData();
@@ -80,6 +81,38 @@ export default function PurchasesPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleEdit = (purchase: Purchase) => {
+    setEditingPurchase(purchase);
+    setIsNewPurchaseOpen(true);
+  };
+
+  const handleDelete = async (id: string, orderNumber: string) => {
+    if (!confirm(`¿Está seguro de que desea eliminar la orden de compra "${orderNumber}"?`)) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/purchases/${id}`, {
+        method: 'DELETE',
+      });
+
+      if (response.ok) {
+        toast.success('Orden de compra eliminada exitosamente');
+        fetchData();
+      } else {
+        const error = await response.json();
+        toast.error(error.error || 'Error al eliminar la orden de compra');
+      }
+    } catch (error) {
+      console.error('Error deleting purchase:', error);
+      toast.error('Error al eliminar la orden de compra');
+    }
+  };
+
+  const resetForm = () => {
+    setEditingPurchase(null);
   };
 
   const filteredPurchases = purchases.filter(purchase =>
@@ -130,26 +163,33 @@ export default function PurchasesPage() {
       <div className="space-y-6">
         {/* Action Button */}
         <div className="flex justify-end">
-          <Dialog open={isNewPurchaseOpen} onOpenChange={setIsNewPurchaseOpen}>
+          <Dialog open={isNewPurchaseOpen} onOpenChange={(open) => {
+            setIsNewPurchaseOpen(open);
+            if (!open) resetForm();
+          }}>
             <DialogTrigger asChild>
-              <Button>
+              <Button onClick={resetForm}>
                 <PlusIcon className="h-4 w-4 mr-2" />
                 Nueva Orden de Compra
               </Button>
             </DialogTrigger>
-          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogContent className="max-w-[95vw] max-h-[95vh] overflow-y-auto w-full">
             <DialogHeader>
-              <DialogTitle>Crear Nueva Orden de Compra</DialogTitle>
+              <DialogTitle>
+                {editingPurchase ? 'Editar Orden de Compra' : 'Crear Nueva Orden de Compra'}
+              </DialogTitle>
               <DialogDescription>
-                Registra una nueva orden de compra a un proveedor
+                {editingPurchase ? 'Modifica la orden de compra' : 'Registra una nueva orden de compra a un proveedor'}
               </DialogDescription>
             </DialogHeader>
             <NewPurchaseForm
               suppliers={suppliers}
               products={products}
+              editingPurchase={editingPurchase}
               onSuccess={() => {
                 setIsNewPurchaseOpen(false);
                 fetchData();
+                resetForm();
               }}
             />
           </DialogContent>
@@ -255,6 +295,8 @@ export default function PurchasesPage() {
             getStatusBadge={getStatusBadge}
             getPaymentStatusBadge={getPaymentStatusBadge}
             onNewPurchase={() => setIsNewPurchaseOpen(true)}
+            onEdit={handleEdit}
+            onDelete={handleDelete}
           />
         </TabsContent>
 
@@ -264,6 +306,8 @@ export default function PurchasesPage() {
             getStatusBadge={getStatusBadge}
             getPaymentStatusBadge={getPaymentStatusBadge}
             onNewPurchase={() => setIsNewPurchaseOpen(true)}
+            onEdit={handleEdit}
+            onDelete={handleDelete}
           />
         </TabsContent>
 
@@ -273,6 +317,8 @@ export default function PurchasesPage() {
             getStatusBadge={getStatusBadge}
             getPaymentStatusBadge={getPaymentStatusBadge}
             onNewPurchase={() => setIsNewPurchaseOpen(true)}
+            onEdit={handleEdit}
+            onDelete={handleDelete}
           />
         </TabsContent>
 
@@ -282,6 +328,8 @@ export default function PurchasesPage() {
             getStatusBadge={getStatusBadge}
             getPaymentStatusBadge={getPaymentStatusBadge}
             onNewPurchase={() => setIsNewPurchaseOpen(true)}
+            onEdit={handleEdit}
+            onDelete={handleDelete}
           />
         </TabsContent>
       </Tabs>
@@ -294,12 +342,16 @@ function PurchasesTable({
   purchases,
   getStatusBadge,
   getPaymentStatusBadge,
-  onNewPurchase
+  onNewPurchase,
+  onEdit,
+  onDelete
 }: {
   purchases: Purchase[];
   getStatusBadge: (status: string) => React.ReactElement;
   getPaymentStatusBadge: (status: string) => React.ReactElement;
   onNewPurchase: () => void;
+  onEdit: (purchase: Purchase) => void;
+  onDelete: (id: string, orderNumber: string) => void;
 }) {
   return (
     <Card>
@@ -351,9 +403,25 @@ function PurchasesTable({
                   <TableCell>{getStatusBadge(purchase.status)}</TableCell>
                   <TableCell>{getPaymentStatusBadge(purchase.payment_status)}</TableCell>
                   <TableCell>
-                    <Button variant="outline" size="sm">
-                      Ver Detalles
-                    </Button>
+                    <div className="flex space-x-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => onEdit(purchase)}
+                      >
+                        <PencilIcon className="h-4 w-4 mr-1" />
+                        Editar
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => onDelete(purchase.id, purchase.order_number)}
+                        className="text-red-600 hover:text-red-700"
+                      >
+                        <TrashIcon className="h-4 w-4 mr-1" />
+                        Eliminar
+                      </Button>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}
@@ -368,10 +436,12 @@ function PurchasesTable({
 function NewPurchaseForm({
   suppliers,
   products,
+  editingPurchase,
   onSuccess
 }: {
   suppliers: Supplier[];
   products: Product[];
+  editingPurchase?: Purchase | null;
   onSuccess: () => void;
 }) {
   const [formData, setFormData] = useState({
@@ -381,7 +451,28 @@ function NewPurchaseForm({
     notes: ''
   });
   const [items, setItems] = useState([{ product_id: '', quantity: 1, unit_cost: 0 }]);
-  const [loading, setLoading] = useState(false);
+  const [formLoading, setFormLoading] = useState(false);
+
+  // Initialize form with editing purchase data
+  useEffect(() => {
+    if (editingPurchase) {
+      setFormData({
+        supplier_id: editingPurchase.supplier_id,
+        expected_delivery: editingPurchase.expected_delivery,
+        payment_terms: 'net_30', // Add payment_terms to Purchase interface if needed
+        notes: '' // Add notes to Purchase interface if needed
+      });
+      // You might need to fetch purchase items from API to populate items state
+    } else {
+      setFormData({
+        supplier_id: '',
+        expected_delivery: '',
+        payment_terms: 'net_30',
+        notes: ''
+      });
+      setItems([{ product_id: '', quantity: 1, unit_cost: 0 }]);
+    }
+  }, [editingPurchase]);
 
   const addItem = () => {
     setItems([...items, { product_id: '', quantity: 1, unit_cost: 0 }]);
@@ -414,33 +505,36 @@ function NewPurchaseForm({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
+    setFormLoading(true);
 
     try {
+      const url = editingPurchase ? `/api/purchases/${editingPurchase.id}` : '/api/purchases';
+      const method = editingPurchase ? 'PUT' : 'POST';
+
       const purchaseData = {
         ...formData,
         user_id: '00000000-0000-0000-0000-000000000000', // This should come from auth
         items: items.filter(item => item.product_id && item.quantity > 0)
       };
 
-      const response = await fetch('/api/purchases', {
-        method: 'POST',
+      const response = await fetch(url, {
+        method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(purchaseData)
       });
 
       if (response.ok) {
-        toast.success('Orden de compra creada exitosamente');
+        toast.success(editingPurchase ? 'Orden de compra actualizada exitosamente' : 'Orden de compra creada exitosamente');
         onSuccess();
       } else {
         const error = await response.json();
-        toast.error(error.error || 'Error al crear la orden de compra');
+        toast.error(error.error || `Error al ${editingPurchase ? 'actualizar' : 'crear'} la orden de compra`);
       }
     } catch (error) {
-      console.error('Error creating purchase:', error);
-      toast.error('Error al crear la orden de compra');
+      console.error('Error saving purchase:', error);
+      toast.error(`Error al ${editingPurchase ? 'actualizar' : 'crear'} la orden de compra`);
     } finally {
-      setLoading(false);
+      setFormLoading(false);
     }
   };
 
@@ -547,8 +641,8 @@ function NewPurchaseForm({
           Total: ${getTotalAmount().toFixed(2)}
         </div>
         <div className="flex space-x-2">
-          <Button type="submit" disabled={loading}>
-            {loading ? 'Guardando...' : 'Crear Orden de Compra'}
+          <Button type="submit" disabled={formLoading}>
+            {formLoading ? 'Guardando...' : (editingPurchase ? 'Actualizar Orden de Compra' : 'Crear Orden de Compra')}
           </Button>
         </div>
       </div>

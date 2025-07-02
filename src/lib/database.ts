@@ -7,8 +7,11 @@ export const sql = neon(process.env.DATABASE_URL!);
 export interface User {
   id: string;
   email: string;
+  password_hash: string;
   name: string;
   role: 'admin' | 'manager' | 'employee';
+  is_active: boolean;
+  last_login?: Date;
   created_at: Date;
   updated_at: Date;
 }
@@ -148,6 +151,35 @@ export interface Alert {
   expires_at?: Date;
 }
 
+export interface SettingsCompany {
+  name: string;
+  address: string;
+  phone: string;
+  email: string;
+  tax_id: string;
+  logo: string;
+}
+
+export interface SettingsNotifications {
+  lowStock: boolean;
+  newOrders: boolean;
+  paymentDue: boolean;
+  emailNotifications: boolean;
+}
+
+export interface SettingsSystem {
+  currency: string;
+  taxRate: number;
+  lowStockThreshold: number;
+  autoBackup: boolean;
+}
+
+export interface Settings {
+  company: SettingsCompany;
+  notifications: SettingsNotifications;
+  system: SettingsSystem;
+}
+
 // Database initialization and migration functions
 export async function initializeDatabase() {
   try {
@@ -166,8 +198,11 @@ async function createTables() {
     CREATE TABLE IF NOT EXISTS users (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
       email VARCHAR(255) UNIQUE NOT NULL,
+      password_hash VARCHAR(255) NOT NULL,
       name VARCHAR(255) NOT NULL,
       role VARCHAR(20) NOT NULL DEFAULT 'employee',
+      is_active BOOLEAN DEFAULT TRUE,
+      last_login TIMESTAMP,
       created_at TIMESTAMP DEFAULT NOW(),
       updated_at TIMESTAMP DEFAULT NOW()
     )
@@ -338,6 +373,16 @@ async function createTables() {
     )
   `;
 
+  // Settings table
+  await sql`
+    CREATE TABLE IF NOT EXISTS settings (
+      key VARCHAR(255) PRIMARY KEY,
+      value TEXT,
+      created_at TIMESTAMP DEFAULT NOW(),
+      updated_at TIMESTAMP DEFAULT NOW()
+    )
+  `;
+
   // Create indexes for better performance
   await sql`CREATE INDEX IF NOT EXISTS idx_products_sku ON products(sku)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_products_category ON products(category_id)`;
@@ -351,17 +396,17 @@ async function createTables() {
 // Sample data insertion for testing
 export async function insertSampleData() {
   try {
-    // Insert sample user
+    // Insert sample user (password will be hashed by the API)
     await sql`
-      INSERT INTO users (email, name, role) 
-      VALUES ('admin@tapia.com', 'Administrador', 'admin')
+      INSERT INTO users (email, password_hash, name, role)
+      VALUES ('admin@tapia.com', 'TEMP_HASH_TO_BE_REPLACED', 'Administrador', 'admin')
       ON CONFLICT (email) DO NOTHING
     `;
 
     // Insert sample categories
     await sql`
-      INSERT INTO categories (name, description) 
-      VALUES 
+      INSERT INTO categories (name, description)
+      VALUES
         ('Electrónicos', 'Productos electrónicos y tecnología'),
         ('Oficina', 'Suministros y material de oficina'),
         ('Limpieza', 'Productos de limpieza y mantenimiento')
@@ -371,5 +416,37 @@ export async function insertSampleData() {
     console.log('Sample data inserted successfully');
   } catch (error) {
     console.error('Error inserting sample data:', error);
+  }
+}
+
+// Funciones para configuraciones del sistema
+export async function getAllSettings(): Promise<Settings> {
+  const rows = await sql`SELECT key, value FROM settings`;
+  const result = {} as Settings;
+  for (const row of rows) {
+    result[row.key as keyof Settings] = row.value;
+  }
+  return result;
+}
+
+export async function getSetting<K extends keyof Settings>(key: K): Promise<Settings[K] | null> {
+  const rows = await sql`SELECT value FROM settings WHERE key = ${key}`;
+  return rows.length > 0 ? rows[0].value : null;
+}
+
+export async function setSetting<K extends keyof Settings>(key: K, value: Settings[K]): Promise<void> {
+  await sql`
+    INSERT INTO settings (key, value)
+    VALUES (${key}, ${JSON.stringify(value)})
+    ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value
+  `;
+}
+
+export async function setMultipleSettings(settings: Partial<Settings>): Promise<void> {
+  function castValue<K extends keyof Settings>(key: K, value: unknown): Settings[K] {
+    return value as Settings[K];
+  }
+  for (const [key, value] of Object.entries(settings)) {
+    await setSetting(key as keyof Settings, castValue(key as keyof Settings, value));
   }
 }
