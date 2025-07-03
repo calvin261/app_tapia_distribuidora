@@ -4,10 +4,10 @@ import { sql } from '@/lib/database';
 // GET single customer by ID
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = params;
+    const { id } = await params;
 
     if (!id) {
       return NextResponse.json(
@@ -41,10 +41,10 @@ export async function GET(
 // PUT update customer by ID
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = params;
+    const { id } = await params;
     const data = await request.json();
     const { name, email, phone, address, tax_id, credit_limit } = data;
 
@@ -83,7 +83,7 @@ export async function PUT(
         phone = ${phone},
         address = ${address},
         tax_id = ${tax_id},
-        credit_limit = ${credit_limit || 0},
+        credit_limit = ${credit_limit ?? 0},
         updated_at = NOW()
       WHERE id = ${id}
       RETURNING *
@@ -102,10 +102,10 @@ export async function PUT(
 // DELETE customer by ID
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = params;
+    const { id } = await params;
 
     if (!id) {
       return NextResponse.json(

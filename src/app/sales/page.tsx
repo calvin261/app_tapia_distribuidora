@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -126,14 +126,7 @@ function SalesPageContent({
 }) {
   const [expandedSaleId, setExpandedSaleId] = useState<string | null>(null);
 
-
-  useEffect(() => {
-    fetchData();
-  }, []);
-
-
-
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     try {
       const [salesRes, customersRes, productsRes] = await Promise.all([
         fetch('/api/sales'),
@@ -161,7 +154,13 @@ function SalesPageContent({
     } finally {
       setLoading(false);
     }
-  };
+  }, [setSales, setCustomers, setProducts, setLoading]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+
 
   const handleEdit = (sale: Sale) => {
     setEditingSale(sale);

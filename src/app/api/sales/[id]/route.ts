@@ -4,10 +4,10 @@ import { sql } from '@/lib/database';
 // GET single sale by ID
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = params;
+    const { id } = await params;
 
     if (!id) {
       return NextResponse.json(
@@ -18,7 +18,7 @@ export async function GET(
 
     // Get sale with customer information
     const sales = await sql`
-      SELECT 
+      SELECT
         s.*,
         c.name as customer_name,
         c.email as customer_email,
@@ -37,7 +37,7 @@ export async function GET(
 
     // Get sale items
     const items = await sql`
-      SELECT 
+      SELECT
         si.*,
         p.name as product_name,
         p.sku as product_sku
@@ -62,20 +62,20 @@ export async function GET(
 // PUT update sale by ID
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = params;
+    const { id } = await params;
     const data = await request.json();
-    const { 
-      customer_id, 
-      payment_method, 
-      payment_status, 
-      status, 
-      discount_amount, 
-      tax_amount, 
-      notes, 
-      items 
+    const {
+      customer_id,
+      payment_method,
+      payment_status,
+      status,
+      discount_amount,
+      tax_amount,
+      notes,
+      items
     } = data;
 
     if (!id) {
@@ -117,8 +117,8 @@ export async function PUT(
 
     // Update the sale
     const result = await sql`
-      UPDATE sales 
-      SET 
+      UPDATE sales
+      SET
         customer_id = ${customer_id},
         payment_method = ${payment_method ?? 'cash'},
         payment_status = ${payment_status ?? 'pending'},
@@ -137,7 +137,7 @@ export async function PUT(
     if (items && Array.isArray(items)) {
       // Delete existing items
       await sql`DELETE FROM sale_items WHERE sale_id = ${id}`;
-      
+
       // Insert new items
       for (const item of items) {
         if (item.product_id && item.quantity > 0) {
@@ -163,10 +163,10 @@ export async function PUT(
 // DELETE sale by ID
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = params;
+    const { id } = await params;
 
     if (!id) {
       return NextResponse.json(
@@ -197,7 +197,7 @@ export async function DELETE(
 
     // Delete sale items first (foreign key constraint)
     await sql`DELETE FROM sale_items WHERE sale_id = ${id}`;
-    
+
     // Delete the sale
     await sql`DELETE FROM sales WHERE id = ${id}`;
 

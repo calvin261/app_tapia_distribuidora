@@ -2,8 +2,75 @@ import { vi } from 'vitest'
 import { render, RenderOptions } from '@testing-library/react'
 import { ReactElement } from 'react'
 
+// Tipos explícitos para datos de prueba
+export interface CustomerMock {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  address: string;
+  tax_id: string;
+  credit_limit: number;
+  created_at: string;
+  [key: string]: unknown;
+}
+
+export interface SupplierMock {
+  id: string;
+  name: string;
+  contact_person: string;
+  email: string;
+  phone: string;
+  address: string;
+  tax_id: string;
+  payment_terms: string;
+  created_at: string;
+  [key: string]: unknown;
+}
+
+export interface ProductMock {
+  id: string;
+  name: string;
+  description: string;
+  sku: string;
+  category_name: string;
+  supplier_name: string;
+  cost_price: number;
+  sale_price: number;
+  stock_quantity: number;
+  min_stock_level: number;
+  status: string;
+  unit: string;
+  created_at: string;
+  [key: string]: unknown;
+}
+
+export interface SaleMock {
+  id: string;
+  invoice_number: string;
+  customer_name: string;
+  sale_date: string;
+  total_amount: number;
+  payment_status: string;
+  status: string;
+  created_at: string;
+  [key: string]: unknown;
+}
+
+export interface PurchaseMock {
+  id: string;
+  order_number: string;
+  supplier_name: string;
+  order_date: string;
+  total_amount: number;
+  payment_status: string;
+  status: string;
+  created_at: string;
+  [key: string]: unknown;
+}
+
 // Test utilities
-export const mockFetch = (data: any, status = 200) => {
+export const mockFetch = <T = unknown>(data: T, status = 200) => {
   const mockResponse = {
     ok: status >= 200 && status < 300,
     status,
@@ -35,7 +102,7 @@ export const renderWithProviders = (
 }
 
 // Mock data generators
-export const mockCustomer = (overrides = {}) => ({
+export const mockCustomer = (overrides: Partial<CustomerMock> = {}): CustomerMock => ({
   id: 'customer-1',
   name: 'Cliente Test',
   email: 'cliente@test.com',
@@ -47,7 +114,7 @@ export const mockCustomer = (overrides = {}) => ({
   ...overrides,
 })
 
-export const mockSupplier = (overrides = {}) => ({
+export const mockSupplier = (overrides: Partial<SupplierMock> = {}): SupplierMock => ({
   id: 'supplier-1',
   name: 'Proveedor Test',
   contact_person: 'Contacto Test',
@@ -60,7 +127,7 @@ export const mockSupplier = (overrides = {}) => ({
   ...overrides,
 })
 
-export const mockProduct = (overrides = {}) => ({
+export const mockProduct = (overrides: Partial<ProductMock> = {}): ProductMock => ({
   id: 'product-1',
   name: 'Producto Test',
   description: 'Descripción del producto test',
@@ -77,7 +144,7 @@ export const mockProduct = (overrides = {}) => ({
   ...overrides,
 })
 
-export const mockSale = (overrides = {}) => ({
+export const mockSale = (overrides: Partial<SaleMock> = {}): SaleMock => ({
   id: 'sale-1',
   invoice_number: 'INV-001',
   customer_name: 'Cliente Test',
@@ -89,7 +156,7 @@ export const mockSale = (overrides = {}) => ({
   ...overrides,
 })
 
-export const mockPurchase = (overrides = {}) => ({
+export const mockPurchase = (overrides: Partial<PurchaseMock> = {}): PurchaseMock => ({
   id: 'purchase-1',
   order_number: 'PO-001',
   supplier_name: 'Proveedor Test',
@@ -102,7 +169,8 @@ export const mockPurchase = (overrides = {}) => ({
 })
 
 // Wait utilities
-export const waitForElement = async (callback: () => any, timeout = 1000) => {
+type WaitForElementCallback<T> = () => T | undefined | null
+export async function waitForElement<T>(callback: WaitForElementCallback<T>, timeout = 1000): Promise<T> {
   return new Promise((resolve, reject) => {
     const startTime = Date.now()
     const check = () => {
@@ -117,7 +185,7 @@ export const waitForElement = async (callback: () => any, timeout = 1000) => {
         }
       } catch (error) {
         if (Date.now() - startTime >= timeout) {
-          reject(error)
+          reject(error instanceof Error ? error : new Error(String(error)))
         } else {
           setTimeout(check, 50)
         }

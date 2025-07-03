@@ -4,10 +4,10 @@ import { sql } from '@/lib/database';
 // GET single purchase by ID
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = params;
+    const { id } = await params;
 
     if (!id) {
       return NextResponse.json(
@@ -18,7 +18,7 @@ export async function GET(
 
     // Get purchase with supplier information
     const purchases = await sql`
-      SELECT 
+      SELECT
         p.*,
         s.name as supplier_name,
         s.email as supplier_email,
@@ -37,7 +37,7 @@ export async function GET(
 
     // Get purchase items
     const items = await sql`
-      SELECT 
+      SELECT
         pi.*,
         prod.name as product_name,
         prod.sku as product_sku
@@ -62,19 +62,19 @@ export async function GET(
 // PUT update purchase by ID
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = params;
+    const { id } = await params;
     const data = await request.json();
-    const { 
-      supplier_id, 
-      expected_delivery, 
-      payment_terms, 
-      status, 
-      payment_status, 
-      notes, 
-      items 
+    const {
+      supplier_id,
+      expected_delivery,
+      payment_terms,
+      status,
+      payment_status,
+      notes,
+      items
     } = data;
 
     if (!id) {
@@ -119,8 +119,8 @@ export async function PUT(
 
     // Update the purchase
     const result = await sql`
-      UPDATE purchases 
-      SET 
+      UPDATE purchases
+      SET
         supplier_id = ${supplier_id},
         expected_delivery = ${expected_delivery},
         payment_terms = ${payment_terms ?? 'net_30'},
@@ -137,7 +137,7 @@ export async function PUT(
     if (items && Array.isArray(items)) {
       // Delete existing items
       await sql`DELETE FROM purchase_items WHERE purchase_id = ${id}`;
-      
+
       // Insert new items
       for (const item of items) {
         if (item.product_id && item.quantity > 0) {
@@ -162,10 +162,10 @@ export async function PUT(
 // DELETE purchase by ID
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = params;
+    const { id } = await params;
 
     if (!id) {
       return NextResponse.json(
@@ -196,7 +196,7 @@ export async function DELETE(
 
     // Delete purchase items first (foreign key constraint)
     await sql`DELETE FROM purchase_items WHERE purchase_id = ${id}`;
-    
+
     // Delete the purchase
     await sql`DELETE FROM purchases WHERE id = ${id}`;
 

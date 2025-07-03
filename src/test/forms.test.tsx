@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 
 // Mock fetch
@@ -22,31 +22,43 @@ vi.mock('@heroicons/react/24/outline', () => ({
 }))
 
 // Create a simple form component for testing
-const TestCustomerForm = ({ onSubmit }: { onSubmit: (data: any) => void }) => {
+interface CustomerFormData {
+  name: string;
+  email?: string;
+  phone?: string;
+}
+
+const TestCustomerForm = ({ onSubmit }: { onSubmit: (data: CustomerFormData) => void }) => {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     const formData = new FormData(e.target as HTMLFormElement)
-    const data = Object.fromEntries(formData.entries())
+    const getString = (value: FormDataEntryValue | null) =>
+      typeof value === 'string' ? value : undefined;
+    const data: CustomerFormData = {
+      name: getString(formData.get('name')) ?? '',
+      email: getString(formData.get('email')),
+      phone: getString(formData.get('phone')),
+    }
     onSubmit(data)
   }
 
   return (
     <form onSubmit={handleSubmit}>
-      <input 
-        name="name" 
-        placeholder="Nombre" 
-        required 
+      <input
+        name="name"
+        placeholder="Nombre"
+        required
         data-testid="name-input"
       />
-      <input 
-        name="email" 
-        type="email" 
-        placeholder="Email" 
+      <input
+        name="email"
+        type="email"
+        placeholder="Email"
         data-testid="email-input"
       />
-      <input 
-        name="phone" 
-        placeholder="Teléfono" 
+      <input
+        name="phone"
+        placeholder="Teléfono"
         data-testid="phone-input"
       />
       <button type="submit" data-testid="submit-button">
@@ -58,7 +70,7 @@ const TestCustomerForm = ({ onSubmit }: { onSubmit: (data: any) => void }) => {
 
 describe('Form Components Tests', () => {
   const user = userEvent.setup()
-  
+
   beforeEach(() => {
     vi.clearAllMocks()
   })
@@ -66,7 +78,7 @@ describe('Form Components Tests', () => {
   it('should render form fields correctly', () => {
     const mockSubmit = vi.fn()
     render(<TestCustomerForm onSubmit={mockSubmit} />)
-    
+
     expect(screen.getByTestId('name-input')).toBeInTheDocument()
     expect(screen.getByTestId('email-input')).toBeInTheDocument()
     expect(screen.getByTestId('phone-input')).toBeInTheDocument()
@@ -76,10 +88,10 @@ describe('Form Components Tests', () => {
   it('should validate required fields', async () => {
     const mockSubmit = vi.fn()
     render(<TestCustomerForm onSubmit={mockSubmit} />)
-    
+
     const submitButton = screen.getByTestId('submit-button')
     await user.click(submitButton)
-    
+
     // HTML5 validation should prevent submission
     expect(mockSubmit).not.toHaveBeenCalled()
   })
@@ -87,13 +99,13 @@ describe('Form Components Tests', () => {
   it('should submit form with valid data', async () => {
     const mockSubmit = vi.fn()
     render(<TestCustomerForm onSubmit={mockSubmit} />)
-    
+
     await user.type(screen.getByTestId('name-input'), 'Test Customer')
     await user.type(screen.getByTestId('email-input'), 'test@example.com')
     await user.type(screen.getByTestId('phone-input'), '123-456-7890')
-    
+
     await user.click(screen.getByTestId('submit-button'))
-    
+
     expect(mockSubmit).toHaveBeenCalledWith({
       name: 'Test Customer',
       email: 'test@example.com',
@@ -104,10 +116,10 @@ describe('Form Components Tests', () => {
   it('should handle form submission errors', async () => {
     const mockSubmit = vi.fn().mockRejectedValue(new Error('Submission failed'))
     render(<TestCustomerForm onSubmit={mockSubmit} />)
-    
+
     await user.type(screen.getByTestId('name-input'), 'Test Customer')
     await user.click(screen.getByTestId('submit-button'))
-    
+
     await waitFor(() => {
       expect(mockSubmit).toHaveBeenCalled()
     })

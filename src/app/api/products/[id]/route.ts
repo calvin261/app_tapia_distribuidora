@@ -4,10 +4,10 @@ import { sql } from '@/lib/database';
 // GET single product by ID
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = params;
+    const { id } = await params;
 
     if (!id) {
       return NextResponse.json(
@@ -17,7 +17,7 @@ export async function GET(
     }
 
     const products = await sql`
-      SELECT 
+      SELECT
         p.*,
         c.name as category_name,
         s.name as supplier_name
@@ -47,25 +47,25 @@ export async function GET(
 // PUT update product by ID
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = params;
+    const { id } = await params;
     const data = await request.json();
-    const { 
-      name, 
-      description, 
-      sku, 
-      barcode, 
-      category_id, 
-      supplier_id, 
-      cost_price, 
-      sale_price, 
-      stock_quantity, 
-      min_stock_level, 
-      max_stock_level, 
-      unit, 
-      status 
+    const {
+      name,
+      description,
+      sku,
+      barcode,
+      category_id,
+      supplier_id,
+      cost_price,
+      sale_price,
+      stock_quantity,
+      min_stock_level,
+      max_stock_level,
+      unit,
+      status
     } = data;
 
     if (!id) {
@@ -108,8 +108,8 @@ export async function PUT(
 
     // Update the product
     const result = await sql`
-      UPDATE products 
-      SET 
+      UPDATE products
+      SET
         name = ${name},
         description = ${description},
         sku = ${sku},
@@ -141,10 +141,10 @@ export async function PUT(
 // DELETE product by ID
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = params;
+    const { id } = await params;
 
     if (!id) {
       return NextResponse.json(
