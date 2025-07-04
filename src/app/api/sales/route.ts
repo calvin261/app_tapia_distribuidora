@@ -9,18 +9,199 @@ interface SaleItem {
   discount_amount?: number;
 }
 
+// Función para obtener el filtro de fecha según el periodo
+function getDateFilter(period: string | null) {
+  if (!period) return sql`1 = 1`; // Sin filtro
+
+  const now = new Date();
+  let startDate: Date;
+
+  switch (period) {
+    case 'week':
+      startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 7);
+      break;
+    case 'month':
+      startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+      break;
+    case 'quarter': {
+      const quarterStart = Math.floor(now.getMonth() / 3) * 3;
+      startDate = new Date(now.getFullYear(), quarterStart, 1);
+      break;
+    }
+    case 'year':
+      startDate = new Date(now.getFullYear(), 0, 1);
+      break;
+    default:
+      startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+  }
+
+  return sql`s.sale_date >= ${startDate.toISOString().split('T')[0]}`;
+}
+
+// Función para manejar reportes mensuales
+async function handleMonthlyReports(period: string | null) {
+  const dateFilter = getDateFilter(period);
+
+  // Obtener ventas agrupadas por mes
+  const salesByMonth = await sql`
+    SELECT
+      TO_CHAR(s.sale_date, 'Mon') as month,
+      SUM(s.total_amount) as ventas,
+      COUNT(*) as productos,
+      SUM(s.total_amount * 0.7) as costos,
+      SUM(s.total_amount * 0.3) as ganancias
+    FROM sales s
+    WHERE ${dateFilter}
+    GROUP BY DATE_TRUNC('month', s.sale_date), TO_CHAR(s.sale_date, 'Mon')
+    ORDER BY DATE_TRUNC('month', s.sale_date)
+  `;
+
+  // Obtener top productos
+  const topProducts = await sql`
+    SELECT
+      p.name,
+      SUM(si.quantity) as ventas,
+      SUM(si.total_amount) as ingresos
+    FROM sale_items si
+    JOIN products p ON si.product_id = p.id
+    JOIN sales s ON si.sale_id = s.id
+    WHERE ${dateFilter}
+    GROUP BY p.id, p.name
+    ORDER BY ingresos DESC
+    LIMIT 5
+  `;
+
+  // Obtener top clientes
+  const topCustomers = await sql`
+    SELECT
+      c.name,
+      COUNT(s.id) as compras,
+      SUM(s.total_amount) as total
+    FROM sales s
+    JOIN customers c ON s.customer_id = c.id
+    WHERE ${dateFilter}
+    GROUP BY c.id, c.name
+    ORDER BY total DESC
+    LIMIT 5
+  `;
+
+  return NextResponse.json({
+    monthly: salesByMonth,
+    topProducts,
+    topCustomers
+  });
+}
+
+// Función para manejar resumen financiero
+async function handleFinancialSummary(period: string | null) {
+  const dateFilter = getDateFilter(period);
+
+  // Obtener resumen financiero del periodo actual
+  const currentSummary = await sql`
+    SELECT
+      SUM(s.total_amount) as ingresos,
+      SUM(s.total_amount * 0.7) as costos,
+      SUM(s.total_amount * 0.3) as ganancias
+    FROM sales s
+    WHERE ${dateFilter}
+  `;
+
+  // Obtener resumen del periodo anterior para comparación
+  const previousDateFilter = getPreviousDateFilter(period);
+  const previousSummary = await sql`
+    SELECT
+      SUM(s.total_amount) as ingresos,
+      SUM(s.total_amount * 0.7) as costos,
+      SUM(s.total_amount * 0.3) as ganancias
+    FROM sales s
+    WHERE ${previousDateFilter}
+  `;
+
+  const current = currentSummary[0] ?? { ingresos: 0, costos: 0, ganancias: 0 };
+  const previous = previousSummary[0] ?? { ingresos: 0, costos: 0, ganancias: 0 };
+
+  return NextResponse.json({
+    summary: {
+      ingresos: current.ingresos ?? 0,
+      costos: current.costos ?? 0,
+      ganancias: current.ganancias ?? 0,
+      ingresosPrevio: previous.ingresos ?? 0,
+      costosPrevio: previous.costos ?? 0,
+      gananciasPrevio: previous.ganancias ?? 0,
+    }
+  });
+}
+
+// Función para obtener el filtro de fecha del periodo anterior
+function getPreviousDateFilter(period: string | null) {
+  if (!period) return sql`1 = 1`;
+
+  const now = new Date();
+  let startDate: Date;
+  let endDate: Date;
+
+  switch (period) {
+    case 'week':
+      startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 14);
+      endDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 7);
+      break;
+    case 'month':
+      startDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      endDate = new Date(now.getFullYear(), now.getMonth(), 0);
+      break;
+    case 'quarter': {
+      const quarterStart = Math.floor(now.getMonth() / 3) * 3;
+      startDate = new Date(now.getFullYear(), quarterStart - 3, 1);
+      endDate = new Date(now.getFullYear(), quarterStart, 0);
+      break;
+    }
+    case 'year':
+      startDate = new Date(now.getFullYear() - 1, 0, 1);
+      endDate = new Date(now.getFullYear() - 1, 11, 31);
+      break;
+    default:
+      // Caso por defecto diferente para evitar duplicación
+      startDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      endDate = new Date(now.getFullYear(), now.getMonth(), 1);
+      break;
+  }
+
+  return sql`s.sale_date >= ${startDate.toISOString().split('T')[0]} AND s.sale_date <= ${endDate.toISOString().split('T')[0]}`;
+}
+
 export async function GET(request: NextRequest) {
   try {
-    // Leer parámetros de paginación
+    // Leer parámetros de la URL
     const { searchParams } = new URL(request.url);
-    const limit = parseInt(searchParams.get('limit') || '20', 10);
-    const offset = parseInt(searchParams.get('offset') || '0', 10);
+    const limitParam = searchParams.get('limit');
+    const offsetParam = searchParams.get('offset');
+    const period = searchParams.get('period');
+    const groupBy = searchParams.get('groupBy');
+    const financialSummary = searchParams.get('financialSummary') === 'true';
 
-    // Obtener el total de registros
-    const totalResult = await sql`SELECT COUNT(*)::int AS total FROM sales`;
-    const total = totalResult[0]?.total || 0;
+    // Si es para reportería con resumen financiero
+    if (financialSummary) {
+      return await handleFinancialSummary(period);
+    }
 
-    // Obtener ventas paginadas y ordenadas
+    // Si es para reportería con agrupación por mes
+    if (groupBy === 'month') {
+      return await handleMonthlyReports(period);
+    }
+
+    // Determinar si es para dashboard (sin parámetros de paginación) o para paginación
+    const isDashboard = !limitParam && !offsetParam && !period;
+    const limit = parseInt(limitParam ?? (isDashboard ? '100' : '20'), 10);
+    const offset = parseInt(offsetParam ?? '0', 10);
+
+    // Obtener el total de registros solo si no es dashboard
+    let total = 0;
+    if (!isDashboard) {
+      const totalResult = await sql`SELECT COUNT(*)::int AS total FROM sales`;
+      total = totalResult[0]?.total ?? 0;
+    }
+
+    // Obtener ventas ordenadas
     const sales = await sql`
       SELECT
         s.*,
@@ -53,6 +234,7 @@ export async function GET(request: NextRequest) {
       customer_name?: string;
       user_name?: string;
     }
+
     interface SaleItemRow {
       sale_id: string;
       product_id: string;
@@ -62,23 +244,40 @@ export async function GET(request: NextRequest) {
       discount_amount: number;
       total_amount: number;
     }
+
     const saleIds = (sales as SaleRow[]).map((s) => s.id);
     let saleItems: SaleItemRow[] = [];
+
     if (saleIds.length > 0) {
       saleItems = (await sql`
         SELECT si.*, p.name as product_name
         FROM sale_items si
         LEFT JOIN products p ON si.product_id = p.id
-        WHERE si.sale_id = ANY(${[saleIds]})
+        WHERE si.sale_id = ANY(${saleIds})
       `) as SaleItemRow[];
     }
+
     // Attach items to each sale
     const salesWithItems = (sales as SaleRow[]).map((sale) => ({
       ...sale,
       items: saleItems.filter((item) => item.sale_id === sale.id)
     }));
 
-    // Devolver también el total para la paginación
+    // Para el dashboard, devolver solo el array de ventas en formato simple
+    if (isDashboard) {
+      return NextResponse.json(salesWithItems.map(sale => ({
+        id: sale.id,
+        sale_date: sale.sale_date,
+        total_amount: sale.total_amount,
+        customer_name: sale.customer_name,
+        products: sale.items?.map(item => ({
+          name: item.product_name,
+          quantity: item.quantity
+        })) ?? []
+      })));
+    }
+
+    // Para paginación, devolver el objeto completo con total
     return NextResponse.json({ total, sales: salesWithItems });
   } catch (error) {
     console.error("Error fetching sales:", error);

@@ -106,12 +106,15 @@ export default function ReportsPage() {
 
   // Fetch de datos reales
   useEffect(() => {
+
+
     async function fetchReports() {
       setIsLoading(true);
       try {
         // Ventas
         const salesRes = await fetch(`/api/sales?period=${selectedPeriod}&groupBy=month&limit=100`);
         const salesData = await salesRes.json();
+        console.log("Datos de ventas:", salesData);
         setSalesByMonth((salesData.monthly ?? []) as SalesByMonth[]);
         setTopProducts((salesData.topProducts ?? []) as TopProduct[]);
         setTopCustomers((salesData.topCustomers ?? []) as TopCustomer[]);

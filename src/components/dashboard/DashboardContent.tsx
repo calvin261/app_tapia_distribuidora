@@ -69,6 +69,8 @@ export function DashboardContent() {
   const router = useRouter();
 
   useEffect(() => {
+    console.log("DashboardContent mounted");
+
     // Cargar datos reales del backend
     fetchDashboardData();
   }, []);
@@ -155,12 +157,16 @@ export function DashboardContent() {
       sales.forEach((s) => {
         if (s.products) {
           s.products.forEach((p) => {
+            console.log(p);
+
             if (!productSalesMap[p.name]) productSalesMap[p.name] = { name: p.name, ventas: 0 };
-            productSalesMap[p.name].ventas += p.quantity;
+            productSalesMap[p.name].ventas = Number(productSalesMap[p.name].ventas) + Number(p.quantity);
           });
         }
       });
       const top = Object.values(productSalesMap).sort((a, b) => b.ventas - a.ventas).slice(0, 5);
+
+
       setTopProducts(top);
 
       // Ventas recientes
