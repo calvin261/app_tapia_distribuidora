@@ -1,72 +1,162 @@
 "use client";
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { ArrowDownTrayIcon, PrinterIcon } from '@heroicons/react/24/outline';
-import { 
-  BarChart, 
-  Bar, 
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Tooltip, 
-  ResponsiveContainer, 
-  LineChart, 
-  Line, 
-  PieChart, 
-  Pie, 
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  LineChart,
+  Line,
+  PieChart,
+  Pie,
   Cell,
   AreaChart,
   Area
 } from 'recharts';
 import { PageLayout } from '@/components/layout/PageLayout';
 
-// Sample data for different reports
-const salesByMonth = [
-  { month: 'Ene', ventas: 4000, productos: 120, clientes: 25 },
-  { month: 'Feb', ventas: 3000, productos: 98, clientes: 22 },
-  { month: 'Mar', ventas: 2000, productos: 86, clientes: 18 },
-  { month: 'Abr', ventas: 2780, productos: 99, clientes: 20 },
-  { month: 'May', ventas: 1890, productos: 85, clientes: 17 },
-  { month: 'Jun', ventas: 2390, productos: 105, clientes: 24 },
-];
+// Tipos fuertes para los datos
+interface SalesByMonth {
+  month: string;
+  ventas: number;
+  productos?: number; // para gráfico financiero
+  costos?: number;
+  ganancias?: number;
+}
 
-const productCategories = [
-  { name: 'Electrónicos', value: 400, color: '#0088FE' },
-  { name: 'Oficina', value: 300, color: '#00C49F' },
-  { name: 'Limpieza', value: 300, color: '#FFBB28' },
-  { name: 'Otros', value: 200, color: '#FF8042' },
-];
+interface ProductCategory {
+  name: string;
+  value: number;
+  color?: string;
+}
 
-const topProducts = [
-  { name: 'Laptop HP', ventas: 45, ingresos: 22500 },
-  { name: 'Mouse Logitech', ventas: 120, ingresos: 3600 },
-  { name: 'Teclado Mecánico', ventas: 65, ingresos: 9750 },
-  { name: 'Monitor LG', ventas: 28, ingresos: 8400 },
-  { name: 'Audífonos Sony', ventas: 85, ingresos: 8500 },
-];
+interface TopProduct {
+  name: string;
+  ventas: number;
+  ingresos: number;
+}
 
-const topCustomers = [
-  { name: 'Empresa ABC', compras: 15, total: 45000 },
-  { name: 'Comercial XYZ', compras: 12, total: 38000 },
-  { name: 'Oficina 123', compras: 8, total: 22000 },
-  { name: 'Tech Solutions', compras: 6, total: 18000 },
-  { name: 'Global Corp', compras: 10, total: 35000 },
-];
+interface TopCustomer {
+  name: string;
+  compras: number;
+  total: number;
+}
 
-const inventoryStatus = [
-  { category: 'Stock Normal', count: 150, color: '#22c55e' },
-  { category: 'Stock Bajo', count: 25, color: '#f59e0b' },
-  { category: 'Sin Stock', count: 8, color: '#ef4444' },
-  { category: 'Sobrestock', count: 12, color: '#6366f1' },
-];
+interface InventoryStatus {
+  category: string;
+  count: number;
+  color?: string;
+}
+
+interface FinancialSummary {
+  ingresos: number;
+  costos: number;
+  ganancias: number;
+  ingresosPrevio: number;
+  costosPrevio: number;
+  gananciasPrevio: number;
+}
+
+// Función helper para calcular el texto del periodo
+const getPeriodText = (period: string): string => {
+  switch (period) {
+    case 'week': return 'semana';
+    case 'month': return 'mes';
+    case 'quarter': return 'trimestre';
+    case 'year': return 'año';
+    default: return 'periodo';
+  }
+};
+
+// Función helper para calcular porcentajes
+const calculatePercentage = (current: number, previous: number): string => {
+  if (previous === 0) return '+100';
+  const diff = ((current - previous) / previous) * 100;
+  return diff >= 0 ? `+${diff.toFixed(1)}` : diff.toFixed(1);
+};
 
 export default function ReportsPage() {
-  const [selectedPeriod, setSelectedPeriod] = useState('month');
+  const [selectedPeriod, setSelectedPeriod] = useState<string>('month');
+
+  // Estados para datos reales
+  const [salesByMonth, setSalesByMonth] = useState<SalesByMonth[]>([]);
+  const [productCategories, setProductCategories] = useState<ProductCategory[]>([]);
+  const [topProducts, setTopProducts] = useState<TopProduct[]>([]);
+  const [topCustomers, setTopCustomers] = useState<TopCustomer[]>([]);
+  const [inventoryStatus, setInventoryStatus] = useState<InventoryStatus[]>([]);
+  const [financialSummary, setFinancialSummary] = useState<FinancialSummary>({
+    ingresos: 0,
+    costos: 0,
+    ganancias: 0,
+    ingresosPrevio: 0,
+    costosPrevio: 0,
+    gananciasPrevio: 0,
+  });
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+
+  // Fetch de datos reales
+  useEffect(() => {
+    async function fetchReports() {
+      setIsLoading(true);
+      try {
+        // Ventas
+        const salesRes = await fetch(`/api/sales?period=${selectedPeriod}&groupBy=month&limit=100`);
+        const salesData = await salesRes.json();
+        setSalesByMonth((salesData.monthly ?? []) as SalesByMonth[]);
+        setTopProducts((salesData.topProducts ?? []) as TopProduct[]);
+        setTopCustomers((salesData.topCustomers ?? []) as TopCustomer[]);
+
+        // Productos/Inventario
+        const productsRes = await fetch(`/api/products?period=${selectedPeriod}&limit=100`);
+        const productsData = await productsRes.json();
+        setProductCategories((productsData.categories ?? []) as ProductCategory[]);
+        setInventoryStatus((productsData.inventoryStatus ?? []) as InventoryStatus[]);
+
+        // Datos financieros
+        const financialRes = await fetch(`/api/sales?period=${selectedPeriod}&financialSummary=true`);
+        const financialData = await financialRes.json();
+
+        if (financialData.summary) {
+          setFinancialSummary({
+            ingresos: financialData.summary.ingresos ?? 0,
+            costos: financialData.summary.costos ?? 0,
+            ganancias: financialData.summary.ganancias ?? 0,
+            ingresosPrevio: financialData.summary.ingresosPrevio ?? 0,
+            costosPrevio: financialData.summary.costosPrevio ?? 0,
+            gananciasPrevio: financialData.summary.gananciasPrevio ?? 0,
+          });
+        }
+      } catch (error) {
+        console.error("Error al cargar reportes:", error);
+        setSalesByMonth([]);
+        setProductCategories([]);
+        setTopProducts([]);
+        setTopCustomers([]);
+        setInventoryStatus([]);
+        setFinancialSummary({
+          ingresos: 0,
+          costos: 0,
+          ganancias: 0,
+          ingresosPrevio: 0,
+          costosPrevio: 0,
+          gananciasPrevio: 0,
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    }
+    fetchReports();
+  }, [selectedPeriod]);
 
   const handleExportPDF = () => {
     // Implementation for PDF export
@@ -82,7 +172,7 @@ export default function ReportsPage() {
       <div className="space-y-6">
       {/* Header */}
       <div className="flex justify-between items-center">
-        
+
         <div className="flex space-x-2">
           <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
             <SelectTrigger className="w-40">
@@ -149,13 +239,13 @@ export default function ReportsPage() {
                       cx="50%"
                       cy="50%"
                       labelLine={false}
-                      label={({ name, percent }) => `${name} ${((percent || 0) * 100).toFixed(0)}%`}
+                      label={({ name, percent }) => `${name} ${((percent ?? 0) * 100).toFixed(0)}%`}
                       outerRadius={80}
                       fill="#8884d8"
                       dataKey="value"
                     >
                       {productCategories.map((entry) => (
-                        <Cell key={entry.name} fill={entry.color} />
+                        <Cell key={entry.name} fill={entry.color ?? '#8884d8'} />
                       ))}
                     </Pie>
                     <Tooltip />
@@ -182,7 +272,7 @@ export default function ReportsPage() {
                       </div>
                     </div>
                     <div className="text-right">
-                      <p className="font-bold text-green-600">${product.ingresos.toLocaleString()}</p>
+                      <p className="font-bold text-green-600">${product.ingresos?.toLocaleString() ?? 0}</p>
                       <p className="text-sm text-slate-500">Ingresos</p>
                     </div>
                   </div>
@@ -220,27 +310,33 @@ export default function ReportsPage() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  <div className="flex items-center justify-between p-3 bg-red-50 border border-red-200 rounded-lg">
-                    <div>
-                      <p className="font-medium text-red-800">Sin Stock</p>
-                      <p className="text-sm text-red-600">8 productos</p>
+                  {inventoryStatus.filter(s => s.category === 'Sin Stock').map((s) => (
+                    <div key={s.category + '-' + s.count} className="flex items-center justify-between p-3 bg-red-50 border border-red-200 rounded-lg">
+                      <div>
+                        <p className="font-medium text-red-800">Sin Stock</p>
+                        <p className="text-sm text-red-600">{s.count} productos</p>
+                      </div>
+                      <Badge variant="destructive">Crítico</Badge>
                     </div>
-                    <Badge variant="destructive">Crítico</Badge>
-                  </div>
-                  <div className="flex items-center justify-between p-3 bg-amber-50 border border-amber-200 rounded-lg">
-                    <div>
-                      <p className="font-medium text-amber-800">Stock Bajo</p>
-                      <p className="text-sm text-amber-600">25 productos</p>
+                  ))}
+                  {inventoryStatus.filter(s => s.category === 'Stock Bajo').map((s) => (
+                    <div key={s.category + '-' + s.count} className="flex items-center justify-between p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                      <div>
+                        <p className="font-medium text-amber-800">Stock Bajo</p>
+                        <p className="text-sm text-amber-600">{s.count} productos</p>
+                      </div>
+                      <Badge className="bg-amber-500">Advertencia</Badge>
                     </div>
-                    <Badge className="bg-amber-500">Advertencia</Badge>
-                  </div>
-                  <div className="flex items-center justify-between p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                    <div>
-                      <p className="font-medium text-blue-800">Sobrestock</p>
-                      <p className="text-sm text-blue-600">12 productos</p>
+                  ))}
+                  {inventoryStatus.filter(s => s.category === 'Sobrestock').map((s) => (
+                    <div key={s.category + '-' + s.count} className="flex items-center justify-between p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                      <div>
+                        <p className="font-medium text-blue-800">Sobrestock</p>
+                        <p className="text-sm text-blue-600">{s.count} productos</p>
+                      </div>
+                      <Badge variant="secondary">Revisar</Badge>
                     </div>
-                    <Badge variant="secondary">Revisar</Badge>
-                  </div>
+                  ))}
                 </div>
               </CardContent>
             </Card>
@@ -266,7 +362,7 @@ export default function ReportsPage() {
                       </div>
                     </div>
                     <div className="text-right">
-                      <p className="font-bold text-blue-600">${customer.total.toLocaleString()}</p>
+                      <p className="font-bold text-blue-600">${customer.total?.toLocaleString() ?? 0}</p>
                       <p className="text-sm text-slate-500">Total comprado</p>
                     </div>
                   </div>
@@ -281,23 +377,35 @@ export default function ReportsPage() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <Card>
               <CardContent className="p-6">
-                <div className="text-2xl font-bold text-green-600">$158,420</div>
-                <p className="text-xs text-slate-500">Ingresos del mes</p>
-                <div className="text-sm text-green-600 mt-1">+12.5% vs mes anterior</div>
+                <div className="text-2xl font-bold text-green-600">${financialSummary.ingresos.toLocaleString()}</div>
+                <p className="text-xs text-slate-500">Ingresos del {getPeriodText(selectedPeriod)}</p>
+                {financialSummary.ingresosPrevio > 0 && (
+                  <div className={`text-sm ${financialSummary.ingresos >= financialSummary.ingresosPrevio ? 'text-green-600' : 'text-red-600'} mt-1`}>
+                    {calculatePercentage(financialSummary.ingresos, financialSummary.ingresosPrevio)}% vs periodo anterior
+                  </div>
+                )}
               </CardContent>
             </Card>
             <Card>
               <CardContent className="p-6">
-                <div className="text-2xl font-bold text-blue-600">$89,230</div>
-                <p className="text-xs text-slate-500">Costos del mes</p>
-                <div className="text-sm text-red-600 mt-1">+5.2% vs mes anterior</div>
+                <div className="text-2xl font-bold text-blue-600">${financialSummary.costos.toLocaleString()}</div>
+                <p className="text-xs text-slate-500">Costos del {getPeriodText(selectedPeriod)}</p>
+                {financialSummary.costosPrevio > 0 && (
+                  <div className={`text-sm ${financialSummary.costos <= financialSummary.costosPrevio ? 'text-green-600' : 'text-red-600'} mt-1`}>
+                    {calculatePercentage(financialSummary.costos, financialSummary.costosPrevio)}% vs periodo anterior
+                  </div>
+                )}
               </CardContent>
             </Card>
             <Card>
               <CardContent className="p-6">
-                <div className="text-2xl font-bold text-purple-600">$69,190</div>
-                <p className="text-xs text-slate-500">Ganancia del mes</p>
-                <div className="text-sm text-green-600 mt-1">+22.8% vs mes anterior</div>
+                <div className="text-2xl font-bold text-purple-600">${financialSummary.ganancias.toLocaleString()}</div>
+                <p className="text-xs text-slate-500">Ganancia del {getPeriodText(selectedPeriod)}</p>
+                {financialSummary.gananciasPrevio > 0 && (
+                  <div className={`text-sm ${financialSummary.ganancias >= financialSummary.gananciasPrevio ? 'text-green-600' : 'text-red-600'} mt-1`}>
+                    {calculatePercentage(financialSummary.ganancias, financialSummary.gananciasPrevio)}% vs periodo anterior
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>
@@ -305,19 +413,26 @@ export default function ReportsPage() {
           <Card>
             <CardHeader>
               <CardTitle>Flujo de Caja</CardTitle>
-              <CardDescription>Ingresos vs gastos por mes</CardDescription>
+              <CardDescription>Ingresos vs gastos por {getPeriodText(selectedPeriod)}</CardDescription>
             </CardHeader>
             <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
-                <LineChart data={salesByMonth}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="month" />
-                  <YAxis />
-                  <Tooltip />
-                  <Line type="monotone" dataKey="ventas" stroke="#10b981" strokeWidth={2} name="Ingresos" />
-                  <Line type="monotone" dataKey="productos" stroke="#ef4444" strokeWidth={2} name="Gastos" />
-                </LineChart>
-              </ResponsiveContainer>
+              {isLoading ? (
+                <div className="flex justify-center items-center h-64">
+                  <p>Cargando datos...</p>
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height={300}>
+                  <LineChart data={salesByMonth}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="month" />
+                    <YAxis />
+                    <Tooltip />
+                    <Line type="monotone" dataKey="ventas" stroke="#10b981" strokeWidth={2} name="Ingresos" />
+                    <Line type="monotone" dataKey="costos" stroke="#ef4444" strokeWidth={2} name="Gastos" />
+                    <Line type="monotone" dataKey="ganancias" stroke="#8b5cf6" strokeWidth={2} name="Ganancias" />
+                  </LineChart>
+                </ResponsiveContainer>
+              )}
             </CardContent>
           </Card>
         </TabsContent>

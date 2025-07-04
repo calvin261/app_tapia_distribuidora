@@ -1,14 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { sql } from '@/lib/database';
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    const { searchParams } = new URL(request.url);
+    const limit = parseInt(searchParams.get('limit') || '20', 10);
+    const offset = parseInt(searchParams.get('offset') || '0', 10);
+    const totalResult = await sql`SELECT COUNT(*)::int AS total FROM customers`;
+    const total = totalResult[0]?.total || 0;
     const customers = await sql`
       SELECT * FROM customers 
       ORDER BY created_at DESC
+      LIMIT ${limit} OFFSET ${offset}
     `;
-    
-    return NextResponse.json(customers);
+    return NextResponse.json({ total, customers });
   } catch (error) {
     console.error('Error fetching customers:', error);
     return NextResponse.json(

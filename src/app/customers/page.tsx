@@ -26,6 +26,8 @@ interface Customer {
 
 export default function CustomersPage() {
   const [customers, setCustomers] = useState<Customer[]>([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -38,20 +40,29 @@ export default function CustomersPage() {
     tax_id: '',
     credit_limit: 0
   });
+  const PAGE_SIZE = 20;
 
   useEffect(() => {
     fetchCustomers();
-  }, []);
+  }, [page]);
 
   const fetchCustomers = async () => {
+    setLoading(true);
     try {
-      const response = await fetch('/api/customers');
-      const data = await response.json();
-      setCustomers(Array.isArray(data) ? data : []);
+      const offset = (page - 1) * PAGE_SIZE;
+      const response = await fetch(`/api/customers?limit=${PAGE_SIZE}&offset=${offset}`);
+      if (response.ok) {
+        const data = await response.json();
+        setCustomers(Array.isArray(data.customers) ? data.customers : []);
+        setTotal(data.total || 0);
+      } else {
+        setCustomers([]);
+        setTotal(0);
+      }
     } catch (error) {
       console.error('Error fetching customers:', error);
-      toast.error('Error al cargar los clientes');
       setCustomers([]);
+      setTotal(0);
     } finally {
       setLoading(false);
     }
@@ -359,6 +370,28 @@ export default function CustomersPage() {
               )}
             </TableBody>
           </Table>
+          {/* Pagination Controls */}
+          {total > PAGE_SIZE && (
+            <div className="flex justify-center items-center gap-2 py-4">
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={page === 1}
+                onClick={() => setPage(page - 1)}
+              >
+                Anterior
+              </Button>
+              <span>Página {page} de {Math.ceil(total / PAGE_SIZE)}</span>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={page >= Math.ceil(total / PAGE_SIZE)}
+                onClick={() => setPage(page + 1)}
+              >
+                Siguiente
+              </Button>
+            </div>
+          )}
         </CardContent>
       </Card>
       </div>

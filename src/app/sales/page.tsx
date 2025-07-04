@@ -64,18 +64,26 @@ interface SaleWithItems extends Sale {
 
 export default function SalesPage() {
   const [sales, setSales] = useState<SaleWithItems[]>([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [isNewSaleOpen, setIsNewSaleOpen] = useState(false);
   const [editingSale, setEditingSale] = useState<Sale | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const PAGE_SIZE = 20;
 
   return (
     <ProtectedRoute>
       <SalesPageContent
         sales={sales}
         setSales={setSales}
+        total={total}
+        setTotal={setTotal}
+        page={page}
+        setPage={setPage}
+        pageSize={PAGE_SIZE}
         customers={customers}
         setCustomers={setCustomers}
         products={products}
@@ -96,6 +104,11 @@ export default function SalesPage() {
 function SalesPageContent({
   sales,
   setSales,
+  total,
+  setTotal,
+  page,
+  setPage,
+  pageSize,
   customers,
   setCustomers,
   products,
@@ -111,6 +124,11 @@ function SalesPageContent({
 }: {
   sales: SaleWithItems[];
   setSales: React.Dispatch<React.SetStateAction<SaleWithItems[]>>;
+  total: number;
+  setTotal: React.Dispatch<React.SetStateAction<number>>;
+  page: number;
+  setPage: React.Dispatch<React.SetStateAction<number>>;
+  pageSize: number;
   customers: Customer[];
   setCustomers: React.Dispatch<React.SetStateAction<Customer[]>>;
   products: Product[];
@@ -127,34 +145,36 @@ function SalesPageContent({
   const [expandedSaleId, setExpandedSaleId] = useState<string | null>(null);
 
   const fetchData = useCallback(async () => {
+    setLoading(true);
     try {
-      const [salesRes, customersRes, productsRes] = await Promise.all([
-        fetch('/api/sales'),
-        fetch('/api/customers'),
-        fetch('/api/products')
-      ]);
-
+      const offset = (page - 1) * pageSize;
+      const salesRes = await fetch(`/api/sales?limit=${pageSize}&offset=${offset}`);
       if (salesRes.ok) {
         const salesData = await salesRes.json();
-        setSales(Array.isArray(salesData) ? salesData : []);
+        setSales(Array.isArray(salesData.sales) ? salesData.sales : []);
+        setTotal(salesData.total || 0);
+      } else {
+        setSales([]);
+        setTotal(0);
       }
-
+      // Clientes y productos no requieren paginación aquí
+      const customersRes = await fetch('/api/customers?limit=1000');
       if (customersRes.ok) {
         const customersData = await customersRes.json();
-        setCustomers(Array.isArray(customersData) ? customersData : []);
+        setCustomers(Array.isArray(customersData.customers) ? customersData.customers : customersData);
       }
-
+      const productsRes = await fetch('/api/products?limit=1000');
       if (productsRes.ok) {
         const productsData = await productsRes.json();
-        setProducts(Array.isArray(productsData) ? productsData : []);
+        setProducts(Array.isArray(productsData.products) ? productsData.products : productsData);
       }
-    } catch (error) {
-      console.error('Error fetching data:', error);
+    } catch (err) {
+      console.error('Error fetching data:', err);
       toast.error('Error al cargar los datos');
     } finally {
       setLoading(false);
     }
-  }, [setSales, setCustomers, setProducts, setLoading]);
+  }, [page, pageSize, setSales, setTotal, setCustomers, setProducts, setLoading]);
 
   useEffect(() => {
     fetchData();
@@ -450,6 +470,28 @@ function SalesPageContent({
             </Table>
           )}
         </CardContent>
+        {/* Pagination Controls */}
+        {total > pageSize && (
+          <div className="flex justify-center items-center gap-2 py-4">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={page === 1}
+              onClick={() => setPage(page - 1)}
+            >
+              Anterior
+            </Button>
+            <span>Página {page} de {Math.ceil(total / pageSize)}</span>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={page >= Math.ceil(total / pageSize)}
+              onClick={() => setPage(page + 1)}
+            >
+              Siguiente
+            </Button>
+          </div>
+        )}
       </Card>
       </div>
     </PageLayout>

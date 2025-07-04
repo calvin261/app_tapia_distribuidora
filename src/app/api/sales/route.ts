@@ -9,8 +9,18 @@ interface SaleItem {
   discount_amount?: number;
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    // Leer parámetros de paginación
+    const { searchParams } = new URL(request.url);
+    const limit = parseInt(searchParams.get('limit') || '20', 10);
+    const offset = parseInt(searchParams.get('offset') || '0', 10);
+
+    // Obtener el total de registros
+    const totalResult = await sql`SELECT COUNT(*)::int AS total FROM sales`;
+    const total = totalResult[0]?.total || 0;
+
+    // Obtener ventas paginadas y ordenadas
     const sales = await sql`
       SELECT
         s.*,
@@ -20,6 +30,7 @@ export async function GET() {
       LEFT JOIN customers c ON s.customer_id = c.id
       LEFT JOIN users u ON s.user_id = u.id
       ORDER BY s.created_at DESC
+      LIMIT ${limit} OFFSET ${offset}
     `;
 
     // Define types for sales
@@ -67,7 +78,8 @@ export async function GET() {
       items: saleItems.filter((item) => item.sale_id === sale.id)
     }));
 
-    return NextResponse.json(salesWithItems);
+    // Devolver también el total para la paginación
+    return NextResponse.json({ total, sales: salesWithItems });
   } catch (error) {
     console.error("Error fetching sales:", error);
     return NextResponse.json(

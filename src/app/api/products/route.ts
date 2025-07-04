@@ -1,8 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { sql } from '@/lib/database';
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    const { searchParams } = new URL(request.url);
+    const limit = parseInt(searchParams.get('limit') || '20', 10);
+    const offset = parseInt(searchParams.get('offset') || '0', 10);
+    const totalResult = await sql`SELECT COUNT(*)::int AS total FROM products`;
+    const total = totalResult[0]?.total || 0;
     const products = await sql`
       SELECT 
         p.*,
@@ -12,9 +17,10 @@ export async function GET() {
       LEFT JOIN categories c ON p.category_id = c.id
       LEFT JOIN suppliers s ON p.supplier_id = s.id
       ORDER BY p.created_at DESC
+      LIMIT ${limit} OFFSET ${offset}
     `;
     
-    return NextResponse.json(products);
+    return NextResponse.json({ total, products });
   } catch (error) {
     console.error('Error fetching products:', error);
     return NextResponse.json(

@@ -27,29 +27,37 @@ interface Product {
 
 export default function InventoryPage() {
   const [products, setProducts] = useState<Product[]>([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [isNewProductOpen, setIsNewProductOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const PAGE_SIZE = 20;
 
   useEffect(() => {
     fetchProducts();
-  }, []);
+  }, [page]);
 
   const fetchProducts = async () => {
+    setLoading(true);
     try {
-      const response = await fetch('/api/products');
+      const offset = (page - 1) * PAGE_SIZE;
+      const response = await fetch(`/api/products?limit=${PAGE_SIZE}&offset=${offset}`);
       if (response.ok) {
         const data = await response.json();
-        setProducts(Array.isArray(data) ? data : []);
+        setProducts(Array.isArray(data.products) ? data.products : []);
+        setTotal(data.total || 0);
       } else {
         toast.error('Error al cargar los productos');
         setProducts([]);
+        setTotal(0);
       }
     } catch (error) {
       console.error('Error fetching products:', error);
       toast.error('Error al cargar los productos');
       setProducts([]);
+      setTotal(0);
     } finally {
       setLoading(false);
     }
@@ -92,7 +100,7 @@ export default function InventoryPage() {
     product.sku?.toLowerCase().includes(searchTerm.toLowerCase())
   ) : [];
 
-  const lowStockProducts = Array.isArray(products) ? products.filter(product => 
+  const lowStockProducts = Array.isArray(products) ? products.filter(product =>
     product.stock_quantity <= product.min_stock_level
   ) : [];
 
@@ -138,13 +146,13 @@ export default function InventoryPage() {
                 {editingProduct ? 'Modifica la información del producto' : 'Registra un nuevo producto en el inventario'}
               </DialogDescription>
             </DialogHeader>
-            <NewProductForm 
+            <NewProductForm
               editingProduct={editingProduct}
               onSuccess={() => {
                 setIsNewProductOpen(false);
                 fetchProducts();
                 resetForm();
-              }} 
+              }}
             />
           </DialogContent>
         </Dialog>
@@ -189,7 +197,7 @@ export default function InventoryPage() {
                 <dl>
                   <dt className="text-sm font-medium text-slate-500 truncate">Valor Total</dt>
                   <dd className="text-2xl font-semibold text-slate-900">
-                    ${products.reduce((sum, product) => 
+                    ${products.reduce((sum, product) =>
                       sum + (product.stock_quantity * product.cost_price), 0
                     ).toFixed(2)}
                   </dd>
@@ -294,7 +302,7 @@ export default function InventoryPage() {
                 <TableRow>
                   <TableHead>Producto</TableHead>
                   <TableHead>SKU</TableHead>
-                  <TableHead>Categoría</TableHead>
+
                   <TableHead>Stock</TableHead>
                   <TableHead>Precio Costo</TableHead>
                   <TableHead>Precio Venta</TableHead>
@@ -307,23 +315,23 @@ export default function InventoryPage() {
                   <TableRow key={product.id}>
                     <TableCell className="font-medium">{product.name}</TableCell>
                     <TableCell>{product.sku}</TableCell>
-                    <TableCell>{product.category_name || 'Sin categoría'}</TableCell>
+
                     <TableCell>{product.stock_quantity}</TableCell>
                     <TableCell>${Number(product.cost_price).toFixed(2)}</TableCell>
                     <TableCell>${Number(product.sale_price).toFixed(2)}</TableCell>
                     <TableCell>{getStockStatusBadge(product)}</TableCell>
                     <TableCell>
                       <div className="flex space-x-2">
-                        <Button 
-                          variant="outline" 
+                        <Button
+                          variant="outline"
                           size="sm"
                           onClick={() => handleEdit(product)}
                         >
                           <PencilIcon className="h-4 w-4 mr-1" />
                           Editar
                         </Button>
-                        <Button 
-                          variant="outline" 
+                        <Button
+                          variant="outline"
                           size="sm"
                           onClick={() => handleDelete(product.id, product.name)}
                           className="text-red-600 hover:text-red-700"
@@ -338,6 +346,29 @@ export default function InventoryPage() {
               </TableBody>
             </Table>
           )}
+
+          {/* Pagination Controls */}
+          {total > PAGE_SIZE && (
+            <div className="flex justify-center items-center gap-2 py-4">
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={page === 1}
+                onClick={() => setPage(page - 1)}
+              >
+                Anterior
+              </Button>
+              <span>Página {page} de {Math.ceil(total / PAGE_SIZE)}</span>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={page >= Math.ceil(total / PAGE_SIZE)}
+                onClick={() => setPage(page + 1)}
+              >
+                Siguiente
+              </Button>
+            </div>
+          )}
         </CardContent>
       </Card>
       </div>
@@ -345,12 +376,12 @@ export default function InventoryPage() {
   );
 }
 
-function NewProductForm({ 
-  editingProduct, 
-  onSuccess 
-}: { 
-  editingProduct?: Product | null; 
-  onSuccess: () => void; 
+function NewProductForm({
+  editingProduct,
+  onSuccess
+}: {
+  editingProduct?: Product | null;
+  onSuccess: () => void;
 }) {
   const [formData, setFormData] = useState({
     name: '',
@@ -398,7 +429,7 @@ function NewProductForm({
     try {
       const url = editingProduct ? `/api/products/${editingProduct.id}` : '/api/products';
       const method = editingProduct ? 'PUT' : 'POST';
-      
+
       const response = await fetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
