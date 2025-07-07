@@ -15,7 +15,7 @@ export async function POST(request: NextRequest) {
     // Simple query processing - in a real app, you'd use OpenAI or similar
     const response = await processQuery(message.toLowerCase());
 
-    return NextResponse.json({ 
+    return NextResponse.json({
       response,
       timestamp: new Date().toISOString()
     });
@@ -35,17 +35,17 @@ async function processQuery(query: string): Promise<string> {
       if (query.includes('hoy') || query.includes('today')) {
         const result = await sql`
           SELECT COUNT(*) as count, SUM(total_amount) as total
-          FROM sales 
+          FROM sales
           WHERE DATE(sale_date) = CURRENT_DATE
         `;
         const { count, total } = result[0];
         return `Hoy se han realizado ${count} ventas por un total de $${total || 0}.`;
       }
-      
+
       if (query.includes('mes') || query.includes('month')) {
         const result = await sql`
           SELECT COUNT(*) as count, SUM(total_amount) as total
-          FROM sales 
+          FROM sales
           WHERE EXTRACT(MONTH FROM sale_date) = EXTRACT(MONTH FROM CURRENT_DATE)
           AND EXTRACT(YEAR FROM sale_date) = EXTRACT(YEAR FROM CURRENT_DATE)
         `;
@@ -66,17 +66,17 @@ async function processQuery(query: string): Promise<string> {
       if (query.includes('bajo') || query.includes('low')) {
         const result = await sql`
           SELECT name, stock_quantity, min_stock_level
-          FROM products 
+          FROM products
           WHERE stock_quantity <= min_stock_level
           AND status = 'active'
           ORDER BY stock_quantity ASC
           LIMIT 5
         `;
-        
+
         if (result.length === 0) {
           return 'No hay productos con stock bajo en este momento.';
         }
-        
+
         let response = 'Productos con stock bajo:\n';
         result.forEach((product) => {
           response += `- ${product.name}: ${product.stock_quantity} unidades (mínimo: ${product.min_stock_level})\n`;
@@ -86,7 +86,7 @@ async function processQuery(query: string): Promise<string> {
 
       const result = await sql`
         SELECT COUNT(*) as count, SUM(stock_quantity) as total_stock
-        FROM products 
+        FROM products
         WHERE status = 'active'
       `;
       const { count, total_stock } = result[0];

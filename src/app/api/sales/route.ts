@@ -23,9 +23,11 @@ function getDateFilter(period: string | null) {
     case 'month':
       startDate = new Date(now.getFullYear(), now.getMonth(), 1);
       break;
-    case 'quarter': {
-      const quarterStart = Math.floor(now.getMonth() / 3) * 3;
-      startDate = new Date(now.getFullYear(), quarterStart, 1);
+    case 'semester': {
+      // Determina el semestre actual (1: enero-junio, 2: julio-diciembre)
+      const month = now.getMonth(); // 0-based
+      const semesterStartMonth = month < 6 ? 6 : 0;
+      startDate = new Date(now.getFullYear(), semesterStartMonth, 1);
       break;
     }
     case 'year':
@@ -34,6 +36,9 @@ function getDateFilter(period: string | null) {
     default:
       startDate = new Date(now.getFullYear(), now.getMonth(), 1);
   }
+  console.log(startDate);
+
+  console.log(`s.sale_date >= ${startDate.toISOString().split('T')[0]}`);
 
   return sql`s.sale_date >= ${startDate.toISOString().split('T')[0]}`;
 }

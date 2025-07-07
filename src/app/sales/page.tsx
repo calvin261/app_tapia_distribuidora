@@ -353,7 +353,7 @@ function SalesPageContent({
                 <dl>
                   <dt className="text-sm font-medium text-slate-500 truncate">Ingresos Total</dt>
                   <dd className="text-2xl font-semibold text-slate-900">
-                    ${sales.reduce((sum, sale) => sum + Number(sale.total_amount), 0).toFixed(2)}
+                    ${total.toFixed(2)}
                   </dd>
                 </dl>
               </div>

@@ -16,6 +16,7 @@
     "verify": "node scripts/verify-system.js"
   },
   "dependencies": {
+    "@google/genai": "^1.8.0",
     "@headlessui/react": "^2.2.4",
     "@heroicons/react": "^2.2.0",
     "@hookform/resolvers": "^5.1.1",

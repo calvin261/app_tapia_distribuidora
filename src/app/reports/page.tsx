@@ -17,9 +17,6 @@ import {
   ResponsiveContainer,
   LineChart,
   Line,
-  PieChart,
-  Pie,
-  Cell,
   AreaChart,
   Area
 } from 'recharts';
@@ -34,11 +31,6 @@ interface SalesByMonth {
   ganancias?: number;
 }
 
-interface ProductCategory {
-  name: string;
-  value: number;
-  color?: string;
-}
 
 interface TopProduct {
   name: string;
@@ -67,12 +59,17 @@ interface FinancialSummary {
   gananciasPrevio: number;
 }
 
+interface InventoryTurnoverByMonth {
+  month: string;
+  turnover: number; // veces que rota el inventario ese mes
+}
+
 // Función helper para calcular el texto del periodo
 const getPeriodText = (period: string): string => {
   switch (period) {
     case 'week': return 'semana';
     case 'month': return 'mes';
-    case 'quarter': return 'trimestre';
+   case 'semester': return 'semestre';
     case 'year': return 'año';
     default: return 'periodo';
   }
@@ -90,7 +87,6 @@ export default function ReportsPage() {
 
   // Estados para datos reales
   const [salesByMonth, setSalesByMonth] = useState<SalesByMonth[]>([]);
-  const [productCategories, setProductCategories] = useState<ProductCategory[]>([]);
   const [topProducts, setTopProducts] = useState<TopProduct[]>([]);
   const [topCustomers, setTopCustomers] = useState<TopCustomer[]>([]);
   const [inventoryStatus, setInventoryStatus] = useState<InventoryStatus[]>([]);
@@ -102,6 +98,7 @@ export default function ReportsPage() {
     costosPrevio: 0,
     gananciasPrevio: 0,
   });
+  const [inventoryTurnoverByMonth, setInventoryTurnoverByMonth] = useState<InventoryTurnoverByMonth[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
 
   // Fetch de datos reales
@@ -122,8 +119,16 @@ export default function ReportsPage() {
         // Productos/Inventario
         const productsRes = await fetch(`/api/products?period=${selectedPeriod}&limit=100`);
         const productsData = await productsRes.json();
-        setProductCategories((productsData.categories ?? []) as ProductCategory[]);
         setInventoryStatus((productsData.inventoryStatus ?? []) as InventoryStatus[]);
+        // Simulación de rotación total de inventario por mes (JIT)
+        const months = [
+          'Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'
+        ];
+        const simulatedTurnoverByMonth = Array.from({ length: 6 }, (_, i) => ({
+          month: months[(new Date().getMonth() - 5 + i + 12) % 12],
+          turnover: Math.round(Math.random() * 10 + 2), // Simulación: 2 a 12 rotaciones
+        }));
+        setInventoryTurnoverByMonth(simulatedTurnoverByMonth);
 
         // Datos financieros
         const financialRes = await fetch(`/api/sales?period=${selectedPeriod}&financialSummary=true`);
@@ -142,7 +147,6 @@ export default function ReportsPage() {
       } catch (error) {
         console.error("Error al cargar reportes:", error);
         setSalesByMonth([]);
-        setProductCategories([]);
         setTopProducts([]);
         setTopCustomers([]);
         setInventoryStatus([]);
@@ -154,6 +158,7 @@ export default function ReportsPage() {
           costosPrevio: 0,
           gananciasPrevio: 0,
         });
+        setInventoryTurnoverByMonth([]);
       } finally {
         setIsLoading(false);
       }
@@ -184,7 +189,7 @@ export default function ReportsPage() {
             <SelectContent>
               <SelectItem value="week">Esta semana</SelectItem>
               <SelectItem value="month">Este mes</SelectItem>
-              <SelectItem value="quarter">Este trimestre</SelectItem>
+              <SelectItem value="semester">Este semestre</SelectItem>
               <SelectItem value="year">Este año</SelectItem>
             </SelectContent>
           </Select>
@@ -231,28 +236,18 @@ export default function ReportsPage() {
 
             <Card>
               <CardHeader>
-                <CardTitle>Distribución por Categorías</CardTitle>
-                <CardDescription>Ventas por categoría de producto</CardDescription>
+                <CardTitle>Rotación Total de Inventario</CardTitle>
+                <CardDescription>Veces que el inventario total rota por mes (JIT)</CardDescription>
               </CardHeader>
               <CardContent>
                 <ResponsiveContainer width="100%" height={300}>
-                  <PieChart>
-                    <Pie
-                      data={productCategories}
-                      cx="50%"
-                      cy="50%"
-                      labelLine={false}
-                      label={({ name, percent }) => `${name} ${((percent ?? 0) * 100).toFixed(0)}%`}
-                      outerRadius={80}
-                      fill="#8884d8"
-                      dataKey="value"
-                    >
-                      {productCategories.map((entry) => (
-                        <Cell key={entry.name} fill={entry.color ?? '#8884d8'} />
-                      ))}
-                    </Pie>
+                  <LineChart data={inventoryTurnoverByMonth}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="month" />
+                    <YAxis />
                     <Tooltip />
-                  </PieChart>
+                    <Line type="monotone" dataKey="turnover" stroke="#10b981" strokeWidth={2} name="Rotación" />
+                  </LineChart>
                 </ResponsiveContainer>
               </CardContent>
             </Card>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -41,69 +41,65 @@ interface AlertConfig {
   push_enabled: boolean;
 }
 
-const mockAlerts: Alert[] = [
-  {
-    id: '1',
-    type: 'low_stock',
-    title: 'Stock bajo detectado',
-    message: 'El producto "Laptop HP" tiene solo 2 unidades en stock',
-    severity: 'warning',
-    is_read: false,
-    created_at: '2024-01-15T10:30:00Z'
-  },
-  {
-    id: '2',
-    type: 'overdue_payment',
-    title: 'Pago vencido',
-    message: 'La factura #1234 del cliente ABC Corp está vencida desde hace 5 días',
-    severity: 'error',
-    is_read: false,
-    created_at: '2024-01-15T09:15:00Z'
-  },
-  {
-    id: '3',
-    type: 'system',
-    title: 'Nueva venta registrada',
-    message: 'Venta #5678 por $1,250 registrada exitosamente',
-    severity: 'success',
-    is_read: true,
-    created_at: '2024-01-15T08:45:00Z'
-  }
-];
-
-const mockConfigs: AlertConfig[] = [
-  {
-    id: '1',
-    type: 'low_stock',
-    name: 'Stock bajo',
-    enabled: true,
-    threshold: 10,
-    email_enabled: true,
-    push_enabled: true
-  },
-  {
-    id: '2',
-    type: 'high_stock',
-    name: 'Sobrestock',
-    enabled: false,
-    threshold: 100,
-    email_enabled: false,
-    push_enabled: true
-  },
-  {
-    id: '3',
-    type: 'overdue_payment',
-    name: 'Pagos vencidos',
-    enabled: true,
-    email_enabled: true,
-    push_enabled: true
-  }
-];
-
 export default function AlertsPage() {
-  const [alerts, setAlerts] = useState<Alert[]>(mockAlerts);
-  const [configs, setConfigs] = useState<AlertConfig[]>(mockConfigs);
+  const [alerts, setAlerts] = useState<Alert[]>([]);
+  const [configs, setConfigs] = useState<AlertConfig[]>([]);
   const [activeTab, setActiveTab] = useState<'alerts' | 'settings'>('alerts');
+
+  // Fetch de alertas y configuraciones reales
+  useEffect(() => {
+    async function fetchAlertsAndConfigs() {
+      try {
+        // Fetch alertas
+        const alertsRes = await fetch('/api/alerts');
+        if (alertsRes.ok) {
+          const data = await alertsRes.json();
+          setAlerts(Array.isArray(data) ? data : data.alerts ?? []);
+        }
+        // Fetch configuraciones
+        const settingsRes = await fetch('/api/settings');
+        if (settingsRes.ok) {
+          const data = await settingsRes.json();
+          // Adaptar a la estructura esperada por la UI
+          if (data.notifications && Array.isArray(data.notifications)) {
+            setConfigs(data.notifications);
+          } else if (data.notifications) {
+            // Si es objeto plano, adaptarlo a array
+            setConfigs([
+              {
+                id: 'low_stock',
+                type: 'low_stock',
+                name: 'Stock bajo',
+                enabled: !!data.notifications.lowStock,
+                threshold: data.system?.lowStockThreshold ?? 10,
+                email_enabled: !!data.notifications.emailNotifications,
+                push_enabled: true // Asumimos true por defecto
+              },
+              {
+                id: 'overdue_payment',
+                type: 'overdue_payment',
+                name: 'Pagos vencidos',
+                enabled: !!data.notifications.paymentDue,
+                email_enabled: !!data.notifications.emailNotifications,
+                push_enabled: true
+              },
+              {
+                id: 'new_orders',
+                type: 'new_orders',
+                name: 'Nuevas órdenes',
+                enabled: !!data.notifications.newOrders,
+                email_enabled: !!data.notifications.emailNotifications,
+                push_enabled: true
+              }
+            ]);
+          }
+        }
+      } catch {
+        toast.error('Error al cargar alertas o configuraciones');
+      }
+    }
+    fetchAlertsAndConfigs();
+  }, []);
 
   const getSeverityColor = (severity: string) => {
     switch (severity) {
@@ -123,23 +119,54 @@ export default function AlertsPage() {
     }
   };
 
-  const handleMarkAsRead = (alertId: string) => {
-    setAlerts(alerts.map(alert =>
-      alert.id === alertId ? { ...alert, is_read: true } : alert
-    ));
-    toast.success('Alerta marcada como leída');
+  // Marcar alerta como leída usando la API
+  const handleMarkAsRead = async (alertId: string) => {
+    try {
+      const res = await fetch(`/api/alerts/${alertId}/read`, { method: 'PUT' });
+      if (res.ok) {
+        setAlerts(alerts.map(alert =>
+          alert.id === alertId ? { ...alert, is_read: true } : alert
+        ));
+        toast.success('Alerta marcada como leída');
+      } else {
+        toast.error('No se pudo marcar la alerta como leída');
+      }
+    } catch {
+      toast.error('Error al conectar con el servidor');
+    }
   };
 
-  const handleDeleteAlert = (alertId: string) => {
-    setAlerts(alerts.filter(alert => alert.id !== alertId));
-    toast.success('Alerta eliminada');
+  // Eliminar alerta usando la API
+  const handleDeleteAlert = async (alertId: string) => {
+    try {
+      const res = await fetch(`/api/alerts/${alertId}`, { method: 'DELETE' });
+      if (res.ok) {
+        setAlerts(alerts.filter(alert => alert.id !== alertId));
+        toast.success('Alerta eliminada');
+      } else {
+        toast.error('No se pudo eliminar la alerta');
+      }
+    } catch {
+      toast.error('Error al conectar con el servidor');
+    }
   };
 
-  const handleConfigUpdate = (configId: string, updates: Partial<AlertConfig>) => {
-    setConfigs(configs.map(config =>
-      config.id === configId ? { ...config, ...updates } : config
-    ));
-    toast.success('Configuración actualizada');
+  // Actualizar configuración usando la API
+  const handleConfigUpdate = async (configId: string, updates: Partial<AlertConfig>) => {
+    try {
+      setConfigs(configs.map(config =>
+        config.id === configId ? { ...config, ...updates } : config
+      ));
+      // Enviar cambios a la API de settings
+      await fetch('/api/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ notifications: configs }),
+      });
+      toast.success('Configuración actualizada');
+    } catch {
+      toast.error('Error al actualizar configuración');
+    }
   };
 
   const unreadCount = alerts.filter(alert => !alert.is_read).length;
