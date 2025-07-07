@@ -19,7 +19,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
 const navigation = [
-  { name: 'Dashboard', href: '/', icon: HomeIcon },
+  { name: 'Panel de Control', href: '/', icon: HomeIcon },
   { name: 'Ventas', href: '/sales', icon: ShoppingCartIcon },
   { name: 'Inventario', href: '/inventory', icon: CubeIcon },
   { name: 'Órdenes de Compra', href: '/purchases', icon: ShoppingCartIcon },
