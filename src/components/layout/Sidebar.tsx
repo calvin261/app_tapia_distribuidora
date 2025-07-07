@@ -8,7 +8,7 @@ import {
   CubeIcon,
   UserGroupIcon,
   TruckIcon,
-  ChartBarIcon,
+
   CogIcon,
   XMarkIcon,
   BellIcon,
@@ -25,7 +25,7 @@ const navigation = [
   { name: 'Órdenes de Compra', href: '/purchases', icon: ShoppingCartIcon },
   { name: 'Clientes', href: '/customers', icon: UserGroupIcon },
   { name: 'Proveedores', href: '/suppliers', icon: TruckIcon },
-  { name: 'Reportes', href: '/reports', icon: ChartBarIcon },
+
   { name: 'Alertas', href: '/alerts', icon: BellIcon },
   { name: 'Tutorial', href: '/tutorial', icon: BellIcon },
   { name: 'Chatbot IA', href: '/chatbot', icon: ChatBubbleLeftRightIcon },

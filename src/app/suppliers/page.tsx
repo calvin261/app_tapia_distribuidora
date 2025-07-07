@@ -60,14 +60,14 @@ export default function SuppliersPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     try {
-      const url = editingSupplier 
-        ? `/api/suppliers/${editingSupplier.id}` 
+      const url = editingSupplier
+        ? `/api/suppliers/${editingSupplier.id}`
         : '/api/suppliers';
-      
+
       const method = editingSupplier ? 'PUT' : 'POST';
-      
+
       const response = await fetch(url, {
         method,
         headers: {
@@ -273,7 +273,7 @@ export default function SuppliersPage() {
 
       {/* Search and Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card className="md:col-span-1">
+        <Card className="md:col-span-3">
           <CardContent className="p-6">
             <div className="relative">
               <MagnifyingGlassIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
@@ -286,7 +286,7 @@ export default function SuppliersPage() {
             </div>
           </CardContent>
         </Card>
-        <Card>
+        {/* <Card>
           <CardContent className="p-6">
             <div className="text-2xl font-bold">{suppliers.length}</div>
             <p className="text-xs text-slate-500">Total Proveedores</p>
@@ -299,7 +299,7 @@ export default function SuppliersPage() {
             </div>
             <p className="text-xs text-slate-500">Con Email</p>
           </CardContent>
-        </Card>
+        </Card> */}
       </div>
 
       {/* Suppliers Table */}

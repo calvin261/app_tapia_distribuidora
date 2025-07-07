@@ -159,7 +159,7 @@ export default function InventoryPage() {
       </div>
 
       {/* Summary cards */}
-      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+      {/* <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardContent className="p-6">
             <div className="flex items-center">
@@ -220,7 +220,7 @@ export default function InventoryPage() {
             </div>
           </CardContent>
         </Card>
-      </div>
+      </div> */}
 
       {/* Search */}
       <Card>

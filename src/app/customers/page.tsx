@@ -275,7 +275,7 @@ export default function CustomersPage() {
 
       {/* Search and Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card className="md:col-span-2">
+        <Card className="md:col-span-4">
           <CardContent className="p-6">
             <div className="relative">
               <MagnifyingGlassIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
@@ -288,7 +288,7 @@ export default function CustomersPage() {
             </div>
           </CardContent>
         </Card>
-        <Card>
+        {/* <Card>
           <CardContent className="p-6">
             <div className="text-2xl font-bold">{customers.length}</div>
             <p className="text-xs text-slate-500">Total Clientes</p>
@@ -301,7 +301,7 @@ export default function CustomersPage() {
             </div>
             <p className="text-xs text-slate-500">Con Crédito</p>
           </CardContent>
-        </Card>
+        </Card> */}
       </div>
 
       {/* Customers Table */}

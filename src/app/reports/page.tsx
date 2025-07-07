@@ -225,7 +225,11 @@ export default function ReportsPage() {
                 <ResponsiveContainer width="100%" height={300}>
                   <AreaChart data={salesByMonth}>
                     <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="month" />
+                    <XAxis dataKey={
+                      selectedPeriod === 'week' ? 'day' :
+                      selectedPeriod === 'month' ? 'day' :
+                      'month'
+                    } />
                     <YAxis />
                     <Tooltip />
                     <Area type="monotone" dataKey="ventas" stroke="#3b82f6" fill="#3b82f6" fillOpacity={0.6} />
